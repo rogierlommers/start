@@ -2,8 +2,14 @@ package server
 
 import (
 	"net/http"
+	"start/internal/httpapi"
+	"start/internal/httpmiddleware"
+	"start/internal/httpweb"
+	"start/internal/repository"
+	"start/internal/service"
 	"time"
 
+	openapiui "github.com/PeterTakahashi/gin-openapi/openapiui"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,15 +23,20 @@ func NewHTTPServer(addr string, readHeaderTimeout time.Duration) *http.Server {
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
 
-	// add a simple health check endpoint and a root endpoint for basic status.
-	router.GET("/healthz", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})
+	httpmiddleware.RegisterGlobal(router)
 
-	// root endpoint for basic status information
-	router.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"service": "start", "status": "running"})
-	})
+	store := repository.NewNoopStore()
+	svc := service.New(store)
+
+	router.GET("/docs/*any", openapiui.WrapHandler(openapiui.Config{
+		SpecURL:      "/openapi.yaml",
+		SpecFilePath: "./docs/swagger.yaml",
+		Title:        "start API",
+		Theme:        "light",
+	}))
+
+	httpapi.Register(router, svc)
+	httpweb.Register(router, svc)
 
 	return &http.Server{
 		Addr:              addr,

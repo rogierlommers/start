@@ -1,0 +1,81 @@
+basePath: /
+definitions:
+  httpapi.healthResponse:
+    properties:
+      status:
+        type: string
+    type: object
+  httpapi.serviceStatusResponse:
+    properties:
+      service:
+        type: string
+      status:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: API documentation generated from handler annotations.
+  title: start API
+  version: 0.1.0
+paths:
+  /:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.serviceStatusResponse'
+      summary: Root service status
+      tags:
+      - system
+  /api/status:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.serviceStatusResponse'
+      summary: Root service status
+      tags:
+      - system
+  /app:
+    get:
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML page
+          schema:
+            type: string
+      summary: Dashboard HTML page
+      tags:
+      - web
+  /healthz:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.healthResponse'
+      summary: Health check
+      tags:
+      - system
+  /openapi.yaml:
+    get:
+      produces:
+      - application/x-yaml
+      responses:
+        "200":
+          description: OpenAPI YAML
+          schema:
+            type: string
+      summary: OpenAPI specification
+      tags:
+      - docs
+swagger: "2.0"

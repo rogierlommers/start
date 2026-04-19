@@ -7,3 +7,13 @@ A go backend for a home dashboard: serves HTML and APIs for login, bookmarks and
 This repository includes a project-specific AI maintenance skill in [.github/copilot-instructions.md](.github/copilot-instructions.md).
 
 Use it to guide AI assistants when adding features, fixing bugs, reviewing code, or maintaining the Go + Gin + SQLite backend.
+
+## OpenAPI
+
+The generated API specification is available at [docs/swagger.yaml](docs/swagger.yaml).
+
+Regenerate it from handler annotations with:
+
+`just generate-openapi`
+
+Interactive API reference UI is available at `/docs` (served via gin-openapi).

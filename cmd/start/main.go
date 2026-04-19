@@ -1,3 +1,7 @@
+// @title start API
+// @version 0.1.0
+// @description API documentation generated from handler annotations.
+// @BasePath /
 package main
 
 import (
