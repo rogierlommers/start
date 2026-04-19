@@ -27,6 +27,7 @@ Core stack:
 1. Go
 2. Gin
 3. SQLite
+4. Logrus (for logging); avoid using the standard library `log` package.
 
 ## Working Style
 
