@@ -26,7 +26,7 @@ func main() {
 	}
 
 	// get a configured HTTP server instance
-	srv := server.NewHTTPServer(cfg.HostPort, cfg.ReadHeaderTimeout)
+	srv := server.NewHTTPServer(cfg)
 
 	// add services
 

@@ -1,14 +1,80 @@
 basePath: /
 definitions:
-  httpapi.healthResponse:
+  httpapi.apiErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  httpapi.bookmarkResponse:
+    properties:
+      category_id:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: integer
+      position:
+        type: integer
+      title:
+        type: string
+      url:
+        type: string
+    type: object
+  httpapi.categoryResponse:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  httpapi.createBookmarkRequest:
+    properties:
+      category_id:
+        type: integer
+      title:
+        type: string
+      url:
+        type: string
+    required:
+    - category_id
+    - url
+    type: object
+  httpapi.createCategoryRequest:
+    properties:
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  httpapi.reorderBookmarksRequest:
+    properties:
+      ids:
+        items:
+          type: integer
+        type: array
+    required:
+    - ids
+    type: object
+  httpapi.reorderBookmarksResponse:
     properties:
       status:
         type: string
     type: object
-  httpapi.serviceStatusResponse:
+  httpapi.sendMailRequest:
     properties:
-      service:
+      body:
         type: string
+      subject:
+        type: string
+      to:
+        type: string
+    required:
+    - body
+    - subject
+    - to
+    type: object
+  httpapi.sendMailResponse:
+    properties:
       status:
         type: string
     type: object
@@ -18,7 +84,7 @@ info:
   title: start API
   version: 0.1.0
 paths:
-  /:
+  /api/bookmarks:
     get:
       produces:
       - application/json
@@ -26,11 +92,106 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httpapi.serviceStatusResponse'
-      summary: Root service status
+            items:
+              $ref: '#/definitions/httpapi.bookmarkResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: List bookmarks
       tags:
-      - system
-  /api/status:
+      - bookmarks
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bookmark payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.createBookmarkRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/httpapi.bookmarkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: Create a bookmark
+      tags:
+      - bookmarks
+  /api/bookmarks/{id}:
+    delete:
+      parameters:
+      - description: Bookmark ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: Delete a bookmark
+      tags:
+      - bookmarks
+  /api/bookmarks/reorder:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Ordered bookmark IDs
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.reorderBookmarksRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.reorderBookmarksResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: Reorder bookmarks
+      tags:
+      - bookmarks
+  /api/categories:
     get:
       produces:
       - application/json
@@ -38,10 +199,95 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httpapi.serviceStatusResponse'
-      summary: Root service status
+            items:
+              $ref: '#/definitions/httpapi.categoryResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: List categories
       tags:
-      - system
+      - bookmarks
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Category payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.createCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/httpapi.categoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: Create a category
+      tags:
+      - bookmarks
+  /api/categories/{id}:
+    delete:
+      parameters:
+      - description: Category ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: Delete a category
+      tags:
+      - bookmarks
+  /api/mail/send:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Mail payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.sendMailRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            $ref: '#/definitions/httpapi.sendMailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: Send email message
+      tags:
+      - mail
   /app:
     get:
       produces:
@@ -53,19 +299,7 @@ paths:
             type: string
       summary: Dashboard HTML page
       tags:
-      - web
-  /healthz:
-    get:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/httpapi.healthResponse'
-      summary: Health check
-      tags:
-      - system
+      - dashboard
   /openapi.yaml:
     get:
       produces:

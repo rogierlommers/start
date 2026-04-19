@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
+	"start/internal/mailer"
 	"start/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -20,37 +22,37 @@ type serviceStatusResponse struct {
 	Status  string `json:"status"`
 }
 
+type sendMailRequest struct {
+	To      string `json:"to" binding:"required"`
+	Subject string `json:"subject" binding:"required"`
+	Body    string `json:"body" binding:"required"`
+}
+
+type sendMailResponse struct {
+	Status string `json:"status"`
+}
+
+type apiErrorResponse struct {
+	Error string `json:"error"`
+}
+
 // Register registers JSON API routes.
 func Register(router gin.IRouter, svc *service.Service) {
 	h := handlers{svc: svc}
 
-	router.GET("/healthz", h.healthz)
-	router.GET("/", h.rootStatus)
 	router.GET("/openapi.yaml", h.openapiSpec)
 
 	api := router.Group("/api")
-	api.GET("/status", h.rootStatus)
-}
+	api.POST("/mail/send", h.sendMail)
 
-// healthz godoc
-// @Summary Health check
-// @Tags system
-// @Produce json
-// @Success 200 {object} healthResponse
-// @Router /healthz [get]
-func (h handlers) healthz(c *gin.Context) {
-	c.JSON(http.StatusOK, h.svc.HealthStatus())
-}
+	api.GET("/categories", h.listCategories)
+	api.POST("/categories", h.createCategory)
+	api.DELETE("/categories/:id", h.deleteCategory)
 
-// rootStatus godoc
-// @Summary Root service status
-// @Tags system
-// @Produce json
-// @Success 200 {object} serviceStatusResponse
-// @Router / [get]
-// @Router /api/status [get]
-func (h handlers) rootStatus(c *gin.Context) {
-	c.JSON(http.StatusOK, h.svc.ServiceStatus())
+	api.GET("/bookmarks", h.listBookmarks)
+	api.POST("/bookmarks", h.createBookmark)
+	api.PATCH("/bookmarks/reorder", h.reorderBookmarks)
+	api.DELETE("/bookmarks/:id", h.deleteBookmark)
 }
 
 // openapiSpec godoc
@@ -61,4 +63,41 @@ func (h handlers) rootStatus(c *gin.Context) {
 // @Router /openapi.yaml [get]
 func (h handlers) openapiSpec(c *gin.Context) {
 	c.File("docs/swagger.yaml")
+}
+
+// sendMail godoc
+// @Summary Send email message
+// @Tags mail
+// @Accept json
+// @Produce json
+// @Param request body sendMailRequest true "Mail payload"
+// @Success 202 {object} sendMailResponse
+// @Failure 400 {object} apiErrorResponse
+// @Failure 503 {object} apiErrorResponse
+// @Router /api/mail/send [post]
+func (h handlers) sendMail(c *gin.Context) {
+	var req sendMailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid JSON body"})
+		return
+	}
+
+	err := h.svc.SendMail(c.Request.Context(), service.SendMailInput{
+		To:      req.To,
+		Subject: req.Subject,
+		Body:    req.Body,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidMailInput):
+			c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid mail payload"})
+		case errors.Is(err, mailer.ErrDisabled):
+			c.JSON(http.StatusServiceUnavailable, apiErrorResponse{Error: "mailer is not configured"})
+		default:
+			c.JSON(http.StatusServiceUnavailable, apiErrorResponse{Error: "failed to send mail"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusAccepted, sendMailResponse{Status: "accepted"})
 }

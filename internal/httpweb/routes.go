@@ -15,18 +15,17 @@ type handlers struct {
 func Register(router gin.IRouter, svc *service.Service) {
 	h := handlers{svc: svc}
 
-	router.GET("/app", h.appHome)
+	router.GET("/", h.appHome)
 }
 
 // appHome godoc
 // @Summary Dashboard HTML page
-// @Tags web
+// @Tags dashboard
 // @Produce html
 // @Success 200 {string} string "HTML page"
 // @Router /app [get]
 func (h handlers) appHome(c *gin.Context) {
-	status := h.svc.ServiceStatus()
 
-	html := "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>start</title></head><body><main><h1>start dashboard</h1><p>service: " + status["service"] + "</p><p>status: " + status["status"] + "</p></main></body></html>"
+	html := "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>start</title></head><body><main><h1>start dashboard</h1></main></body></html>"
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -19,6 +20,11 @@ type Config struct {
 	ShutdownTimeout   time.Duration
 	ReadHeaderTimeout time.Duration
 	LogLevel          string
+	SMTPHost          string
+	SMTPPort          int
+	SMTPUsername      string
+	SMTPPassword      string
+	SMTPFrom          string
 }
 
 // Load reads runtime configuration from environment variables with defaults.
@@ -34,6 +40,19 @@ func Load() (Config, error) {
 		LogLevel:          os.Getenv("LOG_LEVEL"),
 		ShutdownTimeout:   defaultShutdownTimeout,
 		ReadHeaderTimeout: defaultReadHeaderTimeout,
+		SMTPHost:          os.Getenv("SMTP_HOST"),
+		SMTPUsername:      os.Getenv("SMTP_USERNAME"),
+		SMTPPassword:      os.Getenv("SMTP_PASSWORD"),
+		SMTPFrom:          os.Getenv("SMTP_FROM"),
+		SMTPPort:          587,
+	}
+
+	if rawPort := os.Getenv("SMTP_PORT"); rawPort != "" {
+		port, err := strconv.Atoi(rawPort)
+		if err != nil || port <= 0 {
+			return Config{}, fmt.Errorf("invalid SMTP_PORT value %q", rawPort)
+		}
+		cfg.SMTPPort = port
 	}
 
 	return cfg, nil

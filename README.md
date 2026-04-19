@@ -17,3 +17,29 @@ Regenerate it from handler annotations with:
 `just generate-openapi`
 
 Interactive API reference UI is available at `/docs` (served via gin-openapi).
+
+## Mailer API
+
+JSON-only endpoint:
+
+- `POST /api/mail/send`
+
+Request body:
+
+```json
+{
+	"to": "person@example.com",
+	"subject": "Quick note",
+	"body": "Hello from start"
+}
+```
+
+SMTP environment variables:
+
+- `SMTP_HOST`
+- `SMTP_PORT` (optional, defaults to `587`)
+- `SMTP_USERNAME` (optional)
+- `SMTP_PASSWORD` (optional)
+- `SMTP_FROM`
+
+If `SMTP_HOST` or `SMTP_FROM` are not configured, the mail endpoint returns `503`.
