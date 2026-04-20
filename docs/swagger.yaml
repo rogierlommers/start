@@ -1,5 +1,14 @@
 basePath: /
 definitions:
+  httpapi.addReadingListItemRequest:
+    properties:
+      title:
+        type: string
+      url:
+        type: string
+    required:
+    - url
+    type: object
   httpapi.apiErrorResponse:
     properties:
       error:
@@ -45,6 +54,17 @@ definitions:
         type: string
     required:
     - name
+    type: object
+  httpapi.readingListItemResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      title:
+        type: string
+      url:
+        type: string
     type: object
   httpapi.reorderBookmarksRequest:
     properties:
@@ -288,28 +308,49 @@ paths:
       summary: Send email message
       tags:
       - mail
-  /app:
+  /api/reading-list/items:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Reading-list payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.addReadingListItemRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/httpapi.readingListItemResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: Add reading-list item
+      tags:
+      - reading-list
+  /api/reading-list/rss:
     get:
       produces:
-      - text/html
+      - application/rss+xml
       responses:
         "200":
-          description: HTML page
+          description: RSS feed XML
           schema:
             type: string
-      summary: Dashboard HTML page
-      tags:
-      - dashboard
-  /openapi.yaml:
-    get:
-      produces:
-      - application/x-yaml
-      responses:
-        "200":
-          description: OpenAPI YAML
+        "500":
+          description: Internal Server Error
           schema:
-            type: string
-      summary: OpenAPI specification
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: Reading-list RSS feed
       tags:
-      - docs
+      - reading-list
 swagger: "2.0"

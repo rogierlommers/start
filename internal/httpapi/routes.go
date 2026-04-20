@@ -53,14 +53,11 @@ func Register(router gin.IRouter, svc *service.Service) {
 	api.POST("/bookmarks", h.createBookmark)
 	api.PATCH("/bookmarks/reorder", h.reorderBookmarks)
 	api.DELETE("/bookmarks/:id", h.deleteBookmark)
+
+	api.POST("/reading-list/items", h.addReadingListItem)
+	api.GET("/reading-list/rss", h.getReadingListRSS)
 }
 
-// openapiSpec godoc
-// @Summary OpenAPI specification
-// @Tags docs
-// @Produce application/x-yaml
-// @Success 200 {string} string "OpenAPI YAML"
-// @Router /openapi.yaml [get]
 func (h handlers) openapiSpec(c *gin.Context) {
 	c.File("docs/swagger.yaml")
 }

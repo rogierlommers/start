@@ -13,16 +13,20 @@ type MemoryStore struct {
 	mu         sync.RWMutex
 	categories map[int64]Category
 	bookmarks  map[int64]Bookmark
+	reading    map[int64]ReadingListItem
 	nextCatID  int64
 	nextBmkID  int64
+	nextReadID int64
 }
 
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
 		categories: make(map[int64]Category),
 		bookmarks:  make(map[int64]Bookmark),
+		reading:    make(map[int64]ReadingListItem),
 		nextCatID:  1,
 		nextBmkID:  1,
+		nextReadID: 1,
 	}
 }
 
@@ -147,4 +151,35 @@ func (m *MemoryStore) nextBookmarkPosition() int {
 	}
 
 	return maxPosition + 1
+}
+
+func (m *MemoryStore) CreateReadingListItem(_ context.Context, item ReadingListItem) (ReadingListItem, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	item.ID = m.nextReadID
+	item.CreatedAt = time.Now().UTC()
+	m.nextReadID++
+	m.reading[item.ID] = item
+
+	return item, nil
+}
+
+func (m *MemoryStore) ListReadingListItems(_ context.Context) ([]ReadingListItem, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	out := make([]ReadingListItem, 0, len(m.reading))
+	for _, item := range m.reading {
+		out = append(out, item)
+	}
+
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].ID > out[j].ID
+		}
+		return out[i].CreatedAt.After(out[j].CreatedAt)
+	})
+
+	return out, nil
 }

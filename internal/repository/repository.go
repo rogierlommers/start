@@ -46,10 +46,25 @@ type BookmarkStore interface {
 	DeleteBookmark(ctx context.Context, id int64) error
 }
 
+// ReadingListItem represents a URL saved for later reading.
+type ReadingListItem struct {
+	ID        int64
+	URL       string
+	Title     string
+	CreatedAt time.Time
+}
+
+// ReadingListStore defines persistence operations for reading-list items.
+type ReadingListStore interface {
+	CreateReadingListItem(ctx context.Context, item ReadingListItem) (ReadingListItem, error)
+	ListReadingListItems(ctx context.Context) ([]ReadingListItem, error)
+}
+
 // Store defines persistence dependencies used by the service layer.
 type Store interface {
 	CategoryStore
 	BookmarkStore
+	ReadingListStore
 }
 
 // NoopStore is a placeholder repository implementation for scaffolding.
@@ -85,4 +100,12 @@ func (n *NoopStore) ReorderBookmarks(_ context.Context, _ []int64) error {
 
 func (n *NoopStore) DeleteBookmark(_ context.Context, _ int64) error {
 	return nil
+}
+
+func (n *NoopStore) CreateReadingListItem(_ context.Context, item ReadingListItem) (ReadingListItem, error) {
+	return item, nil
+}
+
+func (n *NoopStore) ListReadingListItems(_ context.Context) ([]ReadingListItem, error) {
+	return []ReadingListItem{}, nil
 }
