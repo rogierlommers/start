@@ -16,15 +16,17 @@ const (
 
 // Config contains runtime settings sourced from environment variables.
 type Config struct {
-	HostPort          string
-	ShutdownTimeout   time.Duration
-	ReadHeaderTimeout time.Duration
-	LogLevel          string
-	SMTPHost          string
-	SMTPPort          int
-	SMTPUsername      string
-	SMTPPassword      string
-	SMTPFrom          string
+	HostPort           string
+	ShutdownTimeout    time.Duration
+	ReadHeaderTimeout  time.Duration
+	LogLevel           string
+	SMTPHost           string
+	SMTPPort           int
+	SMTPUsername       string
+	SMTPPassword       string
+	SMTPFrom           string
+	MailerEmailPrivate string
+	MailerEmailWork    string
 }
 
 // Load reads runtime configuration from environment variables with defaults.
@@ -36,15 +38,17 @@ func Load() (Config, error) {
 	}
 
 	cfg := Config{
-		HostPort:          os.Getenv("HTTP_BIND_ADDR"),
-		LogLevel:          os.Getenv("LOG_LEVEL"),
-		ShutdownTimeout:   defaultShutdownTimeout,
-		ReadHeaderTimeout: defaultReadHeaderTimeout,
-		SMTPHost:          os.Getenv("SMTP_HOST"),
-		SMTPUsername:      os.Getenv("SMTP_USERNAME"),
-		SMTPPassword:      os.Getenv("SMTP_PASSWORD"),
-		SMTPFrom:          os.Getenv("SMTP_FROM"),
-		SMTPPort:          587,
+		HostPort:           os.Getenv("HTTP_BIND_ADDR"),
+		LogLevel:           os.Getenv("LOG_LEVEL"),
+		ShutdownTimeout:    defaultShutdownTimeout,
+		ReadHeaderTimeout:  defaultReadHeaderTimeout,
+		SMTPHost:           os.Getenv("SMTP_HOST"),
+		SMTPUsername:       os.Getenv("SMTP_USERNAME"),
+		SMTPPassword:       os.Getenv("SMTP_PASSWORD"),
+		SMTPFrom:           os.Getenv("SMTP_FROM"),
+		SMTPPort:           587,
+		MailerEmailPrivate: os.Getenv("MAILER_EMAIL_PRIVATE"),
+		MailerEmailWork:    os.Getenv("MAILER_EMAIL_WORK"),
 	}
 
 	if rawPort := os.Getenv("SMTP_PORT"); rawPort != "" {
