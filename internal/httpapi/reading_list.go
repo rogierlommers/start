@@ -91,6 +91,26 @@ func (h handlers) addReadingListItem(c *gin.Context) {
 	c.JSON(http.StatusCreated, readingListItemToResponse(item))
 }
 
+// listReadingListItems godoc
+// @Summary List reading-list items
+// @Tags reading-list
+// @Produce json
+// @Success 200 {array} readingListItemResponse
+// @Failure 500 {object} apiErrorResponse
+// @Router /api/reading-list/items [get]
+func (h handlers) listReadingListItems(c *gin.Context) {
+	items, err := h.svc.ListReadingListItems(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, apiErrorResponse{Error: "failed to list reading list items"})
+		return
+	}
+	resp := make([]readingListItemResponse, len(items))
+	for i, item := range items {
+		resp[i] = readingListItemToResponse(item)
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
 // getReadingListRSS godoc
 // @Summary Reading-list RSS feed
 // @Tags reading-list

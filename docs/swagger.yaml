@@ -309,6 +309,23 @@ paths:
       tags:
       - mail
   /api/reading-list/items:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/httpapi.readingListItemResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: List reading-list items
+      tags:
+      - reading-list
     post:
       consumes:
       - application/json
