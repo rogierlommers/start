@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 
-	"start/internal/mailer"
 	"start/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -84,7 +83,9 @@ func (h handlers) sendMail(c *gin.Context) {
 		switch {
 		case errors.Is(err, service.ErrInvalidMailInput):
 			c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid mail payload"})
-		case errors.Is(err, mailer.ErrDisabled):
+		case errors.Is(err, service.ErrMailQueueFull):
+			c.JSON(http.StatusServiceUnavailable, apiErrorResponse{Error: "mail service temporarily unavailable; try again later"})
+		case errors.Is(err, service.ErrDisabledMailer):
 			c.JSON(http.StatusServiceUnavailable, apiErrorResponse{Error: "mailer is not configured"})
 		default:
 			c.JSON(http.StatusServiceUnavailable, apiErrorResponse{Error: "failed to send mail"})

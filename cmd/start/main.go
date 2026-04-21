@@ -26,9 +26,8 @@ func main() {
 	}
 
 	// get a configured HTTP server instance
-	srv := server.NewHTTPServer(cfg)
-
-	// add services
+	ctx := server.NewHTTPServer(cfg)
+	defer ctx.Service.Close()
 
 	// set up graceful shutdown on SIGINT/SIGTERM
 	shutdownDone := make(chan struct{})
@@ -40,18 +39,18 @@ func main() {
 
 		logrus.Infof("received signal %s, shutting down", sig)
 
-		ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+		c, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 		defer cancel()
 
 		// attempt graceful shutdown with timeout
-		if err := srv.Shutdown(ctx); err != nil {
+		if err := ctx.Server.Shutdown(c); err != nil {
 			logrus.Infof("graceful shutdown failed: %v", err)
 		}
 	}()
 
 	// run the server
 	logrus.Infof("start backend listening on http://%s", cfg.HostPort)
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := ctx.Server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logrus.Fatalf("server error: %v", err)
 	}
 
