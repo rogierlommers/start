@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 
 	"start/internal/service"
 
@@ -38,44 +39,54 @@ func (h handlers) sendMail(c *gin.Context) {
 		return
 	}
 
-	// Process attachments from multipart form
-	form, err := c.MultipartForm()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid request: failed to parse form data"})
-		return
-	}
-
 	var attachments []service.SendMailAttachment
 
-	// Extract files from "attachments" form field
-	if files, ok := form.File["attachments"]; ok {
-		for _, fileHeader := range files {
-			file, err := fileHeader.Open()
-			if err != nil {
-				c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid request: failed to read attachment"})
-				return
-			}
-			defer file.Close()
+	// Process attachments from multipart form
+	skipMultipart := strings.ToLower(c.Request.Header.Get("x-skip-multipart"))
 
-			// Limit attachment size to 10MB per file
-			data, err := io.ReadAll(io.LimitReader(file, 10*1024*1024))
-			if err != nil {
-				c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid request: attachment too large or read error"})
-				return
-			}
-
-			attachments = append(attachments, service.SendMailAttachment{
-				Filename: fileHeader.Filename,
-				Data:     data,
-			})
+	if skipMultipart != "true" {
+		form, err := c.MultipartForm()
+		if err != nil {
+			logrus.Errorf("failed to parse multipart form: %v", err)
+			c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid request: failed to parse form data"})
+			return
 		}
+
+		// Extract files from "attachments" form field
+		if files, ok := form.File["attachments"]; ok {
+			for _, fileHeader := range files {
+				file, err := fileHeader.Open()
+				if err != nil {
+					logrus.Infof("failed to open attachment %s: %v", fileHeader.Filename, err)
+					c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid request: failed to read attachment"})
+					return
+				}
+				defer file.Close()
+
+				// Limit attachment size to 10MB per file
+				data, err := io.ReadAll(io.LimitReader(file, 10*1024*1024))
+				if err != nil {
+					c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid request: attachment too large or read error"})
+					return
+				}
+
+				attachments = append(attachments, service.SendMailAttachment{
+					Filename: fileHeader.Filename,
+					Data:     data,
+				})
+			}
+		}
+
 	}
 
-	err = h.svc.SendMail(c.Request.Context(), service.SendMailInput{
+	// send actual mail via service layer (non-blocking, returns immediately after queuing the mail task)
+	err := h.svc.SendMail(c.Request.Context(), service.SendMailInput{
 		Body:        req.Body,
 		Attachments: attachments,
 	})
+
 	if err != nil {
+		logrus.Errorf("failed to send mail: %v", err)
 		switch {
 		case errors.Is(err, service.ErrInvalidMailInput):
 			c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid mail payload"})
