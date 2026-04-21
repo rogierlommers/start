@@ -7,6 +7,7 @@ import (
 	"net/mail"
 	"strings"
 
+	"start/internal/config"
 	"start/internal/mailer"
 
 	"github.com/sirupsen/logrus"
@@ -36,11 +37,14 @@ func (s *Service) SendMail(ctx context.Context, in SendMailInput) error {
 		return ErrDisabledMailer
 	}
 
-	to := ""
+	// determine to address
+	to := deterimeRecipient(s.cfg, in.Body)
+	subject := "todo: subject"
 	body := strings.TrimSpace(in.Body)
-	subject := deriveSubject(body)
 
+	logrus.Infof("preparing to send mail to %s with body: %s", to, body)
 	if to == "" || subject == "" || body == "" {
+		logrus.Error("invalid mail input: missing required fields")
 		return ErrInvalidMailInput
 	}
 
@@ -78,30 +82,6 @@ func (s *Service) SendMail(ctx context.Context, in SendMailInput) error {
 		// Queue is full; reject the request to apply backpressure
 		return ErrMailQueueFull
 	}
-}
-
-func deriveSubject(body string) string {
-	trimmed := strings.TrimSpace(body)
-	if trimmed == "" {
-		return ""
-	}
-
-	parts := strings.Split(trimmed, "\n")
-	for _, part := range parts {
-		line := strings.TrimSpace(part)
-		if line == "" {
-			continue
-		}
-
-		runes := []rune(line)
-		if len(runes) <= generatedSubjectMaxLen {
-			return line
-		}
-
-		return strings.TrimSpace(string(runes[:generatedSubjectMaxLen]))
-	}
-
-	return ""
 }
 
 // StartMailWorker starts a background goroutine that processes mail tasks.
@@ -143,4 +123,16 @@ func (s *Service) StartMailWorker() {
 func (s *Service) Close() {
 	close(s.done)
 	close(s.mailQueue)
+}
+
+// detemineRecipient checks if the body starts with a "w" or "W".
+// if so, then use the work email, otherwise use the private email.
+func deterimeRecipient(cfg config.Config, body string) string {
+	trimmedBody := strings.TrimSpace(body)
+
+	if len(trimmedBody) > 0 && (trimmedBody[0] == 'w' || trimmedBody[0] == 'W') {
+		return cfg.MailerEmailWork
+	}
+
+	return cfg.MailerEmailPrivate
 }

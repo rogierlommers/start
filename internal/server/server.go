@@ -44,7 +44,7 @@ func NewHTTPServer(cfg config.Config) *ServerContext {
 	}
 
 	// service layer
-	svc := service.New(store, sender)
+	svc := service.New(store, sender, cfg)
 
 	// start background mail worker
 	svc.StartMailWorker()
