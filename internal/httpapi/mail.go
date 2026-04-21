@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"io"
 	"net/http"
 
 	"start/internal/mailer"
@@ -11,9 +12,9 @@ import (
 )
 
 type sendMailRequest struct {
-	To      string `json:"to" binding:"required"`
-	Subject string `json:"subject" binding:"required"`
-	Body    string `json:"body" binding:"required"`
+	To      string `form:"to" binding:"required"`
+	Subject string `form:"subject" binding:"required"`
+	Body    string `form:"body" binding:"required"`
 }
 
 type sendMailResponse struct {
@@ -21,26 +22,63 @@ type sendMailResponse struct {
 }
 
 // sendMail godoc
-// @Summary Send email message
+// @Summary Send email message with optional attachments
 // @Tags mail
-// @Accept json
+// @Accept mpfd
 // @Produce json
-// @Param request body sendMailRequest true "Mail payload"
+// @Param to formData string true "Email recipient address"
+// @Param subject formData string true "Email subject"
+// @Param body formData string true "Email body"
+// @Param attachments formData file false "File attachments (can be multiple)"
 // @Success 202 {object} sendMailResponse
 // @Failure 400 {object} apiErrorResponse
 // @Failure 503 {object} apiErrorResponse
 // @Router /api/mail/send [post]
 func (h handlers) sendMail(c *gin.Context) {
 	var req sendMailRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid JSON body"})
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid request: missing required fields"})
 		return
 	}
 
-	err := h.svc.SendMail(c.Request.Context(), service.SendMailInput{
-		To:      req.To,
-		Subject: req.Subject,
-		Body:    req.Body,
+	// Process attachments from multipart form
+	form, err := c.MultipartForm()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid request: failed to parse form data"})
+		return
+	}
+
+	var attachments []service.SendMailAttachment
+
+	// Extract files from "attachments" form field
+	if files, ok := form.File["attachments"]; ok {
+		for _, fileHeader := range files {
+			file, err := fileHeader.Open()
+			if err != nil {
+				c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid request: failed to read attachment"})
+				return
+			}
+			defer file.Close()
+
+			// Limit attachment size to 10MB per file
+			data, err := io.ReadAll(io.LimitReader(file, 10*1024*1024))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid request: attachment too large or read error"})
+				return
+			}
+
+			attachments = append(attachments, service.SendMailAttachment{
+				Filename: fileHeader.Filename,
+				Data:     data,
+			})
+		}
+	}
+
+	err = h.svc.SendMail(c.Request.Context(), service.SendMailInput{
+		To:          req.To,
+		Subject:     req.Subject,
+		Body:        req.Body,
+		Attachments: attachments,
 	})
 	if err != nil {
 		switch {

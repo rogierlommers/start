@@ -1,20 +1,29 @@
 package mailer
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/mail"
 	"net/smtp"
 	"strings"
+	"time"
 )
 
 var ErrDisabled = errors.New("mailer is not configured")
 
+type Attachment struct {
+	Filename string
+	Data     []byte
+}
+
 type Message struct {
-	To      string
-	Subject string
-	Body    string
+	To          string
+	Subject     string
+	Body        string
+	Attachments []Attachment
 }
 
 type Sender interface {
@@ -58,15 +67,7 @@ func (s *SMTPSender) Send(ctx context.Context, msg Message) error {
 		return ErrDisabled
 	}
 
-	headers := []string{
-		"From: " + sanitizeHeaderValue(s.from),
-		"To: " + sanitizeHeaderValue(msg.To),
-		"Subject: " + sanitizeHeaderValue(msg.Subject),
-		"MIME-Version: 1.0",
-		"Content-Type: text/plain; charset=UTF-8",
-	}
-
-	payload := strings.Join(headers, "\r\n") + "\r\n\r\n" + msg.Body
+	payload := buildMessage(s.from, msg)
 
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
 	var auth smtp.Auth
@@ -74,11 +75,68 @@ func (s *SMTPSender) Send(ctx context.Context, msg Message) error {
 		auth = smtp.PlainAuth("", s.username, s.password, s.host)
 	}
 
-	if err := smtp.SendMail(addr, auth, s.from, []string{msg.To}, []byte(payload)); err != nil {
+	if err := smtp.SendMail(addr, auth, s.from, []string{msg.To}, payload); err != nil {
 		return fmt.Errorf("smtp send failed: %w", err)
 	}
 
 	return nil
+}
+
+// buildMessage constructs the SMTP payload as a multipart MIME message if attachments are present,
+// otherwise as a simple text message.
+func buildMessage(from string, msg Message) []byte {
+	if len(msg.Attachments) == 0 {
+		// Simple text message with no attachments
+		headers := []string{
+			"From: " + sanitizeHeaderValue(from),
+			"To: " + sanitizeHeaderValue(msg.To),
+			"Subject: " + sanitizeHeaderValue(msg.Subject),
+			"MIME-Version: 1.0",
+			"Content-Type: text/plain; charset=UTF-8",
+		}
+		return []byte(strings.Join(headers, "\r\n") + "\r\n\r\n" + msg.Body)
+	}
+
+	// Multipart message with attachments
+	boundary := fmt.Sprintf("boundary_%d", time.Now().UnixNano())
+	buf := &bytes.Buffer{}
+
+	headers := []string{
+		"From: " + sanitizeHeaderValue(from),
+		"To: " + sanitizeHeaderValue(msg.To),
+		"Subject: " + sanitizeHeaderValue(msg.Subject),
+		"MIME-Version: 1.0",
+		fmt.Sprintf("Content-Type: multipart/mixed; boundary=%s", boundary),
+	}
+
+	buf.WriteString(strings.Join(headers, "\r\n") + "\r\n\r\n")
+
+	// Write body part
+	buf.WriteString("--" + boundary + "\r\n")
+	buf.WriteString("Content-Type: text/plain; charset=UTF-8\r\n\r\n")
+	buf.WriteString(msg.Body + "\r\n")
+
+	// Write attachments
+	for _, att := range msg.Attachments {
+		buf.WriteString("--" + boundary + "\r\n")
+		buf.WriteString(fmt.Sprintf("Content-Type: application/octet-stream; name=%q\r\n", att.Filename))
+		buf.WriteString("Content-Transfer-Encoding: base64\r\n")
+		buf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=%q\r\n\r\n", att.Filename))
+
+		// Encode attachment data as base64 with line breaks every 76 chars
+		encoded := base64.StdEncoding.EncodeToString(att.Data)
+		for i := 0; i < len(encoded); i += 76 {
+			end := i + 76
+			if end > len(encoded) {
+				end = len(encoded)
+			}
+			buf.WriteString(encoded[i:end] + "\r\n")
+		}
+	}
+
+	buf.WriteString("--" + boundary + "--\r\n")
+
+	return buf.Bytes()
 }
 
 func sanitizeHeaderValue(in string) string {

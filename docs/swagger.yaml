@@ -80,19 +80,6 @@ definitions:
       status:
         type: string
     type: object
-  httpapi.sendMailRequest:
-    properties:
-      body:
-        type: string
-      subject:
-        type: string
-      to:
-        type: string
-    required:
-    - body
-    - subject
-    - to
-    type: object
   httpapi.sendMailResponse:
     properties:
       status:
@@ -282,14 +269,27 @@ paths:
   /api/mail/send:
     post:
       consumes:
-      - application/json
+      - multipart/form-data
       parameters:
-      - description: Mail payload
-        in: body
-        name: request
+      - description: Email recipient address
+        in: formData
+        name: to
         required: true
-        schema:
-          $ref: '#/definitions/httpapi.sendMailRequest'
+        type: string
+      - description: Email subject
+        in: formData
+        name: subject
+        required: true
+        type: string
+      - description: Email body
+        in: formData
+        name: body
+        required: true
+        type: string
+      - description: File attachments (can be multiple)
+        in: formData
+        name: attachments
+        type: file
       produces:
       - application/json
       responses:
@@ -305,7 +305,7 @@ paths:
           description: Service Unavailable
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
-      summary: Send email message
+      summary: Send email message with optional attachments
       tags:
       - mail
   /api/reading-list/items:
