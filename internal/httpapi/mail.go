@@ -8,12 +8,11 @@ import (
 	"start/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 type sendMailRequest struct {
-	To      string `form:"to" binding:"required"`
-	Subject string `form:"subject" binding:"required"`
-	Body    string `form:"body" binding:"required"`
+	Body string `form:"body" binding:"required"`
 }
 
 type sendMailResponse struct {
@@ -25,8 +24,6 @@ type sendMailResponse struct {
 // @Tags mail
 // @Accept mpfd
 // @Produce json
-// @Param to formData string true "Email recipient address"
-// @Param subject formData string true "Email subject"
 // @Param body formData string true "Email body"
 // @Param attachments formData file false "File attachments (can be multiple)"
 // @Success 202 {object} sendMailResponse
@@ -36,6 +33,7 @@ type sendMailResponse struct {
 func (h handlers) sendMail(c *gin.Context) {
 	var req sendMailRequest
 	if err := c.ShouldBind(&req); err != nil {
+		logrus.Infof("invalid send mail request: %v", err)
 		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid request: missing required fields"})
 		return
 	}
@@ -74,8 +72,6 @@ func (h handlers) sendMail(c *gin.Context) {
 	}
 
 	err = h.svc.SendMail(c.Request.Context(), service.SendMailInput{
-		To:          req.To,
-		Subject:     req.Subject,
 		Body:        req.Body,
 		Attachments: attachments,
 	})

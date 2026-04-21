@@ -18,14 +18,14 @@ var (
 	ErrDisabledMailer   = errors.New("mailer is not configured")
 )
 
+const generatedSubjectMaxLen = 80
+
 type SendMailAttachment struct {
 	Filename string
 	Data     []byte
 }
 
 type SendMailInput struct {
-	To          string
-	Subject     string
 	Body        string
 	Attachments []SendMailAttachment
 }
@@ -36,9 +36,9 @@ func (s *Service) SendMail(ctx context.Context, in SendMailInput) error {
 		return ErrDisabledMailer
 	}
 
-	to := strings.TrimSpace(in.To)
-	subject := strings.TrimSpace(in.Subject)
+	to := ""
 	body := strings.TrimSpace(in.Body)
+	subject := deriveSubject(body)
 
 	if to == "" || subject == "" || body == "" {
 		return ErrInvalidMailInput
@@ -78,6 +78,30 @@ func (s *Service) SendMail(ctx context.Context, in SendMailInput) error {
 		// Queue is full; reject the request to apply backpressure
 		return ErrMailQueueFull
 	}
+}
+
+func deriveSubject(body string) string {
+	trimmed := strings.TrimSpace(body)
+	if trimmed == "" {
+		return ""
+	}
+
+	parts := strings.Split(trimmed, "\n")
+	for _, part := range parts {
+		line := strings.TrimSpace(part)
+		if line == "" {
+			continue
+		}
+
+		runes := []rune(line)
+		if len(runes) <= generatedSubjectMaxLen {
+			return line
+		}
+
+		return strings.TrimSpace(string(runes[:generatedSubjectMaxLen]))
+	}
+
+	return ""
 }
 
 // StartMailWorker starts a background goroutine that processes mail tasks.

@@ -271,16 +271,6 @@ paths:
       consumes:
       - multipart/form-data
       parameters:
-      - description: Email recipient address
-        in: formData
-        name: to
-        required: true
-        type: string
-      - description: Email subject
-        in: formData
-        name: subject
-        required: true
-        type: string
       - description: Email body
         in: formData
         name: body
