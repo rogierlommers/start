@@ -214,6 +214,80 @@
         return `${d.toLocaleString()} (${relative})`
       }
 
+      function isImageFile(file) {
+        const contentType = String(file.content_type || '').toLowerCase()
+        if (contentType.startsWith('image/')) return true
+        return /\.(png|jpe?g|gif|webp|bmp|svg|avif)$/i.test(String(file.filename || ''))
+      }
+
+      function getFileTile(file) {
+        const contentType = String(file.content_type || '').toLowerCase()
+        const filename = String(file.filename || '').toLowerCase()
+
+        if (contentType === 'application/pdf' || /\.pdf$/i.test(filename)) {
+          return { icon: '📄', label: 'PDF', classes: 'border-red-200 bg-red-50 text-red-700' }
+        }
+
+        // Microsoft Excel and common spreadsheet formats
+        if (
+          contentType.includes('spreadsheetml') ||
+          contentType.includes('ms-excel') ||
+          /\.(xlsx|xls|xlsm|csv|ods)$/i.test(filename)
+        ) {
+          return { icon: '📊', label: 'XLS', classes: 'border-emerald-200 bg-emerald-50 text-emerald-700' }
+        }
+
+        // Word and rich text docs
+        if (
+          contentType.includes('wordprocessingml') ||
+          contentType.includes('msword') ||
+          /\.(docx|doc|rtf|odt)$/i.test(filename)
+        ) {
+          return { icon: '📝', label: 'DOC', classes: 'border-blue-200 bg-blue-50 text-blue-700' }
+        }
+
+        // PowerPoint decks
+        if (
+          contentType.includes('presentationml') ||
+          contentType.includes('ms-powerpoint') ||
+          /\.(pptx|ppt|odp)$/i.test(filename)
+        ) {
+          return { icon: '📽️', label: 'PPT', classes: 'border-orange-200 bg-orange-50 text-orange-700' }
+        }
+
+        // Archives and compressed files
+        if (
+          contentType.includes('zip') ||
+          contentType.includes('gzip') ||
+          contentType.includes('x-tar') ||
+          /\.(zip|gz|tgz|tar|rar|7z)$/i.test(filename)
+        ) {
+          return { icon: '🗜️', label: 'ZIP', classes: 'border-amber-200 bg-amber-50 text-amber-700' }
+        }
+
+        // Audio files
+        if (contentType.startsWith('audio/') || /\.(mp3|wav|m4a|ogg|flac|aac)$/i.test(filename)) {
+          return { icon: '🎵', label: 'AUDIO', classes: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700' }
+        }
+
+        // Video files
+        if (contentType.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm|m4v)$/i.test(filename)) {
+          return { icon: '🎬', label: 'VIDEO', classes: 'border-violet-200 bg-violet-50 text-violet-700' }
+        }
+
+        // Code, data, and text files
+        if (
+          contentType.startsWith('text/') ||
+          contentType.includes('json') ||
+          contentType.includes('xml') ||
+          /\.(txt|md|json|xml|yaml|yml|toml|ini|log|go|js|ts|py|sh|html|css)$/i.test(filename)
+        ) {
+          return { icon: '💻', label: 'TEXT', classes: 'border-slate-200 bg-slate-50 text-slate-700' }
+        }
+
+        return { icon: '📁', label: 'FILE', classes: 'border-gray-200 bg-gray-100 text-gray-700' }
+      }
+
       // ── Mail ──────────────────────────────────────────────────
 
       document.getElementById('mail-form').addEventListener('submit', async (e) => {
@@ -244,17 +318,33 @@
             list.innerHTML = '<li class="py-2 text-xs text-gray-400">No files stored.</li>'
             return
           }
-          list.innerHTML = files.map(f => `
+          list.innerHTML = files.map(f => {
+            const fileUrl = `/api/storage/files/${encodeURIComponent(f.filename)}`
+            const preview = isImageFile(f)
+              ? `<img src="${fileUrl}" alt="" loading="lazy" class="h-[100px] w-[100px] rounded border border-gray-200 object-cover shrink-0 bg-white" />`
+              : (() => {
+                  const tile = getFileTile(f)
+                  return `<div class="h-[100px] w-[100px] rounded shrink-0 flex flex-col items-center justify-center border ${tile.classes}">
+                    <span class="text-2xl leading-none">${tile.icon}</span>
+                    <span class="mt-1 text-[10px] font-semibold">${tile.label}</span>
+                  </div>`
+                })()
+
+            return `
             <li class="py-2 flex items-center justify-between gap-2">
-              <div class="min-w-0 flex-1">
-                <a href="/api/storage/files/${encodeURIComponent(f.filename)}"
-                   target="_blank"
-                   class="truncate text-emerald-600 hover:underline text-xs font-mono block"
-                   title="${escHtml(f.filename)}">${escHtml(f.filename)}</a>
-                <span class="text-[11px] text-gray-400">Uploaded: ${escHtml(fmtDateTime(f.uploaded_at))}</span>
+              <div class="min-w-0 flex items-center gap-2 flex-1">
+                ${preview}
+                <div class="min-w-0">
+                  <a href="${fileUrl}"
+                     target="_blank"
+                     class="truncate text-emerald-600 hover:underline text-xs font-mono block"
+                     title="${escHtml(f.filename)}">${escHtml(f.filename)}</a>
+                  <span class="text-[11px] text-gray-400">Uploaded: ${escHtml(fmtDateTime(f.uploaded_at))}</span>
+                </div>
               </div>
               <span class="text-xs text-gray-400 shrink-0">${fmt(f.size)}</span>
-            </li>`).join('')
+            </li>`
+          }).join('')
         } catch (err) {
           list.innerHTML = `<li class="py-2 text-xs text-red-500">${escHtml(err.message)}</li>`
         }
