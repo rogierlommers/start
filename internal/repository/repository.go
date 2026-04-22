@@ -41,6 +41,7 @@ type Bookmark struct {
 // BookmarkStore defines persistence operations for bookmarks.
 type BookmarkStore interface {
 	CreateBookmark(ctx context.Context, b Bookmark) (Bookmark, error)
+	UpdateBookmark(ctx context.Context, b Bookmark) (Bookmark, error)
 	ListBookmarks(ctx context.Context) ([]Bookmark, error)
 	ReorderBookmarks(ctx context.Context, ids []int64) error
 	DeleteBookmark(ctx context.Context, id int64) error
@@ -87,6 +88,10 @@ func (n *NoopStore) DeleteCategory(_ context.Context, _ int64) error {
 }
 
 func (n *NoopStore) CreateBookmark(_ context.Context, b Bookmark) (Bookmark, error) {
+	return b, nil
+}
+
+func (n *NoopStore) UpdateBookmark(_ context.Context, b Bookmark) (Bookmark, error) {
 	return b, nil
 }
 

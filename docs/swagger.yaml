@@ -96,6 +96,18 @@ definitions:
       size:
         type: integer
     type: object
+  httpapi.updateBookmarkRequest:
+    properties:
+      category_id:
+        type: integer
+      title:
+        type: string
+      url:
+        type: string
+    required:
+    - category_id
+    - url
+    type: object
   httpapi.uploadStorageFileResponse:
     properties:
       filename:
@@ -209,6 +221,43 @@ paths:
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
       summary: Delete a bookmark
+      tags:
+      - bookmarks
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bookmark ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Bookmark payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.updateBookmarkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.bookmarkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: Update a bookmark
       tags:
       - bookmarks
   /api/bookmarks/reorder:

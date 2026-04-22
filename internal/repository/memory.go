@@ -83,6 +83,27 @@ func (m *MemoryStore) CreateBookmark(_ context.Context, b Bookmark) (Bookmark, e
 	return b, nil
 }
 
+func (m *MemoryStore) UpdateBookmark(_ context.Context, b Bookmark) (Bookmark, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	existing, ok := m.bookmarks[b.ID]
+	if !ok {
+		return Bookmark{}, fmt.Errorf("bookmark %d: %w", b.ID, ErrBookmarkNotFound)
+	}
+
+	if _, ok := m.categories[b.CategoryID]; !ok {
+		return Bookmark{}, fmt.Errorf("category %d: %w", b.CategoryID, ErrCategoryNotFound)
+	}
+
+	existing.URL = b.URL
+	existing.Title = b.Title
+	existing.CategoryID = b.CategoryID
+	m.bookmarks[b.ID] = existing
+
+	return existing, nil
+}
+
 func (m *MemoryStore) ListBookmarks(_ context.Context) ([]Bookmark, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

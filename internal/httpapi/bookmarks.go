@@ -35,6 +35,12 @@ type createBookmarkRequest struct {
 	CategoryID int64  `json:"category_id"     binding:"required"`
 }
 
+type updateBookmarkRequest struct {
+	URL        string `json:"url"             binding:"required"`
+	Title      string `json:"title"`
+	CategoryID int64  `json:"category_id"     binding:"required"`
+}
+
 type reorderBookmarksRequest struct {
 	IDs []int64 `json:"ids" binding:"required"`
 }
@@ -191,6 +197,52 @@ func (h handlers) createBookmark(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, bookmarkToResponse(b))
+}
+
+// updateBookmark godoc
+// @Summary Update a bookmark
+// @Tags bookmarks
+// @Accept json
+// @Produce json
+// @Param id path int true "Bookmark ID"
+// @Param request body updateBookmarkRequest true "Bookmark payload"
+// @Success 200 {object} bookmarkResponse
+// @Failure 400 {object} apiErrorResponse
+// @Failure 422 {object} apiErrorResponse
+// @Failure 500 {object} apiErrorResponse
+// @Router /api/bookmarks/{id} [patch]
+func (h handlers) updateBookmark(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "id must be a positive integer"})
+		return
+	}
+
+	var req updateBookmarkRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid JSON body"})
+		return
+	}
+
+	b, err := h.svc.UpdateBookmark(c.Request.Context(), service.UpdateBookmarkInput{
+		ID:         id,
+		URL:        req.URL,
+		Title:      req.Title,
+		CategoryID: req.CategoryID,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidBookmarkInput):
+			c.JSON(http.StatusBadRequest, apiErrorResponse{Error: err.Error()})
+		case errors.Is(err, service.ErrBookmarkNotFound), errors.Is(err, service.ErrCategoryNotFound):
+			c.JSON(http.StatusUnprocessableEntity, apiErrorResponse{Error: err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, apiErrorResponse{Error: "failed to update bookmark"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, bookmarkToResponse(b))
 }
 
 // reorderBookmarks godoc

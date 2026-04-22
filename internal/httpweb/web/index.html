@@ -258,47 +258,45 @@
 
       function bmRow(bm) {
         const li = document.createElement('li')
-        li.className = 'py-1.5 flex items-center gap-2 cursor-default'
-        li.draggable = true
+        li.className = 'py-1.5 flex flex-col gap-2 cursor-default'
         li.dataset.id = bm.id
-        li.innerHTML = `
-          <span class="drag-handle text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing select-none shrink-0 text-base leading-none" title="Drag to reorder">⠿</span>
+
+        // View mode
+        const viewDiv = document.createElement('div')
+        viewDiv.className = 'flex items-center gap-2'
+        viewDiv.innerHTML = `
           <a href="${escAttr(bm.url)}" target="_blank" rel="noopener noreferrer"
              class="text-indigo-600 hover:underline truncate text-sm flex-1">${escHtml(bm.title || bm.url)}</a>
+          <button data-move-up="${bm.id}"
+            class="text-xs text-gray-400 hover:text-indigo-600 transition-colors shrink-0 px-1" title="Move up">↑</button>
+          <button data-move-down="${bm.id}"
+            class="text-xs text-gray-400 hover:text-indigo-600 transition-colors shrink-0 px-1" title="Move down">↓</button>
+          <button data-edit="${bm.id}"
+            class="text-xs text-gray-400 hover:text-indigo-600 transition-colors shrink-0 px-1" title="Edit">✎</button>
           <button data-delete="${bm.id}"
             class="text-xs text-gray-300 hover:text-red-500 transition-colors shrink-0 px-1" title="Delete">✕</button>`
 
-        li.addEventListener('dragstart', (e) => {
-          dragSrcLi = li
-          e.dataTransfer.effectAllowed = 'move'
-          li.classList.add('opacity-40')
-        })
-        li.addEventListener('dragend', () => {
-          dragSrcLi = null
-          li.classList.remove('opacity-40')
-          document.querySelectorAll('#bookmarks-list li').forEach(el => el.classList.remove('border-t-2', 'border-indigo-400'))
-        })
-        li.addEventListener('dragover', (e) => {
-          if (!dragSrcLi || dragSrcLi === li || dragSrcLi.parentNode !== li.parentNode) return
-          e.preventDefault()
-          e.dataTransfer.dropEffect = 'move'
-          document.querySelectorAll('#bookmarks-list li').forEach(el => el.classList.remove('border-t-2', 'border-indigo-400'))
-          li.classList.add('border-t-2', 'border-indigo-400')
-        })
-        li.addEventListener('drop', async (e) => {
-          e.preventDefault()
-          if (!dragSrcLi || dragSrcLi === li || dragSrcLi.parentNode !== li.parentNode) return
-          li.classList.remove('border-t-2', 'border-indigo-400')
-          // Move dragSrcLi before li in the same <ul>
-          li.parentNode.insertBefore(dragSrcLi, li)
-          try {
-            await persistBookmarkOrder()
-            toast('Bookmark order updated')
-          } catch (err) {
-            toast('Failed to save order: ' + err.message, 'error')
-            loadBookmarks()
-          }
-        })
+        // Edit mode (hidden by default)
+        const editDiv = document.createElement('div')
+        editDiv.className = 'hidden space-y-2 bg-gray-100 p-2 rounded text-xs'
+        const catOptions = categoriesCache.map(c => `<option value="${c.id}" ${c.id === bm.category_id ? 'selected' : ''}>${escHtml(c.name)}</option>`).join('')
+        editDiv.innerHTML = `
+          <input type="text" data-edit-title value="${escAttr(bm.title)}"
+            class="w-full rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400" placeholder="Title" />
+          <input type="url" data-edit-url value="${escAttr(bm.url)}"
+            class="w-full rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400" placeholder="URL" />
+          <select data-edit-category
+            class="w-full rounded border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400">
+            ${catOptions}
+          </select>
+          <div class="flex gap-1">
+            <button data-edit-save="${bm.id}" class="flex-1 rounded bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700">Save</button>
+            <button data-edit-cancel="${bm.id}" class="flex-1 rounded bg-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-400">Cancel</button>
+          </div>`
+
+        li.appendChild(viewDiv)
+        li.appendChild(editDiv)
+
         return li
       }
 
@@ -335,8 +333,97 @@
             container.appendChild(section)
           }
 
-          // Delete via event delegation on the container
+          // Event delegation: move, edit, save, cancel, delete
           container.onclick = async (e) => {
+            const moveUpBtn = e.target.closest('[data-move-up]')
+            if (moveUpBtn) {
+              const row = moveUpBtn.closest('li[data-id]')
+              if (!row || !row.previousElementSibling) {
+                toast('Cannot move up: already at top', 'warn')
+                return
+              }
+              row.parentNode.insertBefore(row, row.previousElementSibling)
+              try {
+                await persistBookmarkOrder()
+                toast('Bookmark moved up')
+              } catch (err) {
+                toast('Failed to move: ' + err.message, 'error')
+                loadBookmarks()
+              }
+              return
+            }
+
+            const moveDownBtn = e.target.closest('[data-move-down]')
+            if (moveDownBtn) {
+              const row = moveDownBtn.closest('li[data-id]')
+              if (!row || !row.nextElementSibling) {
+                toast('Cannot move down: already at bottom', 'warn')
+                return
+              }
+              row.parentNode.insertBefore(row.nextElementSibling, row)
+              try {
+                await persistBookmarkOrder()
+                toast('Bookmark moved down')
+              } catch (err) {
+                toast('Failed to move: ' + err.message, 'error')
+                loadBookmarks()
+              }
+              return
+            }
+
+            const editBtn = e.target.closest('[data-edit]')
+            if (editBtn) {
+              const row = editBtn.closest('li[data-id]')
+              if (!row) return
+              const viewDiv = row.querySelector('div:first-child')
+              const editDiv = row.querySelector('div:last-child')
+              viewDiv.classList.add('hidden')
+              editDiv.classList.remove('hidden')
+              editDiv.querySelector('[data-edit-title]').focus()
+              return
+            }
+
+            const cancelBtn = e.target.closest('[data-edit-cancel]')
+            if (cancelBtn) {
+              const row = cancelBtn.closest('li[data-id]')
+              if (!row) return
+              const viewDiv = row.querySelector('div:first-child')
+              const editDiv = row.querySelector('div:last-child')
+              viewDiv.classList.remove('hidden')
+              editDiv.classList.add('hidden')
+              return
+            }
+
+            const saveBtn = e.target.closest('[data-edit-save]')
+            if (saveBtn) {
+              const row = saveBtn.closest('li[data-id]')
+              if (!row) return
+              const id = Number(row.dataset.id)
+              const title = row.querySelector('[data-edit-title]').value.trim()
+              const url = row.querySelector('[data-edit-url]').value.trim()
+              const category_id = Number(row.querySelector('[data-edit-category]').value)
+              
+              if (!title || !url || !category_id) {
+                toast('All fields are required', 'warn')
+                return
+              }
+
+              try {
+                saveBtn.disabled = true
+                await apiFetch(`/api/bookmarks/${id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ url, title, category_id }),
+                })
+                toast('Bookmark updated')
+                loadBookmarks()
+              } catch (err) {
+                toast('Failed to update: ' + err.message, 'error')
+                saveBtn.disabled = false
+              }
+              return
+            }
+
             const btn = e.target.closest('[data-delete]')
             if (!btn) return
             const id = Number(btn.dataset.delete)

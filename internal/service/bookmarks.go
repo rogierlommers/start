@@ -40,6 +40,13 @@ type CreateBookmarkInput struct {
 	CategoryID int64
 }
 
+type UpdateBookmarkInput struct {
+	ID         int64
+	URL        string
+	Title      string
+	CategoryID int64
+}
+
 func (s *Service) CreateCategory(ctx context.Context, in CreateCategoryInput) (Category, error) {
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
@@ -107,6 +114,47 @@ func (s *Service) CreateBookmark(ctx context.Context, in CreateBookmarkInput) (B
 			return Bookmark{}, fmt.Errorf("%w: category %d does not exist", ErrCategoryNotFound, in.CategoryID)
 		}
 		return Bookmark{}, fmt.Errorf("create bookmark: %w", err)
+	}
+
+	return repoBookmarkToService(b), nil
+}
+
+func (s *Service) UpdateBookmark(ctx context.Context, in UpdateBookmarkInput) (Bookmark, error) {
+	if in.ID <= 0 {
+		return Bookmark{}, fmt.Errorf("%w: id must be a positive integer", ErrInvalidBookmarkInput)
+	}
+
+	rawURL := strings.TrimSpace(in.URL)
+	title := strings.TrimSpace(in.Title)
+
+	if rawURL == "" {
+		return Bookmark{}, fmt.Errorf("%w: url is required", ErrInvalidBookmarkInput)
+	}
+
+	if in.CategoryID <= 0 {
+		return Bookmark{}, fmt.Errorf("%w: category_id is required", ErrInvalidBookmarkInput)
+	}
+
+	parsed, err := url.Parse(rawURL)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return Bookmark{}, fmt.Errorf("%w: url must be a valid http or https URL", ErrInvalidBookmarkInput)
+	}
+
+	b, err := s.store.UpdateBookmark(ctx, repository.Bookmark{
+		ID:         in.ID,
+		URL:        rawURL,
+		Title:      title,
+		CategoryID: in.CategoryID,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrBookmarkNotFound):
+			return Bookmark{}, fmt.Errorf("%w: bookmark %d does not exist", ErrBookmarkNotFound, in.ID)
+		case errors.Is(err, repository.ErrCategoryNotFound):
+			return Bookmark{}, fmt.Errorf("%w: category %d does not exist", ErrCategoryNotFound, in.CategoryID)
+		default:
+			return Bookmark{}, fmt.Errorf("update bookmark: %w", err)
+		}
 	}
 
 	return repoBookmarkToService(b), nil
