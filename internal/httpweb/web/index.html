@@ -32,10 +32,19 @@
     <main class="w-[90vw] max-w-none mx-auto px-4 py-8">
 
       <!-- Tab bar -->
-      <div class="flex gap-1 border-b border-gray-200 mb-6" role="tablist">
-        <button class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition-colors" data-tab="bookmarks"    role="tab">Bookmarks</button>
-        <button class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition-colors" data-tab="mail"         role="tab">Notify</button>
-        <button class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition-colors" data-tab="storage"      role="tab">Storage</button>
+      <div class="flex gap-2 mb-6" role="tablist">
+        <button class="tab-btn flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 border-2 border-transparent hover:border-indigo-200" data-tab="bookmarks" role="tab">
+          <span class="text-lg">🔖</span>
+          <span>Bookmarks</span>
+        </button>
+        <button class="tab-btn flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 border-2 border-transparent hover:border-amber-200" data-tab="mail" role="tab">
+          <span class="text-lg">📤</span>
+          <span>Notify</span>
+        </button>
+        <button class="tab-btn flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 border-2 border-transparent hover:border-emerald-200" data-tab="storage" role="tab">
+          <span class="text-lg">💾</span>
+          <span>Storage</span>
+        </button>
       </div>
 
       <!-- ── Mail ─────────────────────────────────────────────── -->
@@ -45,16 +54,16 @@
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">Body <span class="font-normal text-gray-400">(prefix <code class="font-mono">w </code> for work)</span></label>
             <textarea id="mail-body" rows="4"
-              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
               placeholder="Your message…" required></textarea>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">Attachments <span class="font-normal text-gray-400">(optional)</span></label>
             <input id="mail-files" type="file" multiple
-              class="block w-full text-sm text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-indigo-700 hover:file:bg-indigo-100" />
+              class="block w-full text-sm text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-amber-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-amber-700 hover:file:bg-amber-100" />
           </div>
           <button type="submit"
-            class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 active:bg-indigo-800 transition-colors">
+            class="w-full rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 active:bg-amber-800 transition-colors">
             Send
           </button>
         </form>
@@ -82,7 +91,7 @@
           <div class="flex items-center justify-between mb-2">
             <span class="text-xs font-medium text-gray-500">Stored files</span>
             <button onclick="loadStorageFiles()"
-              class="text-xs text-indigo-600 hover:underline">Refresh</button>
+              class="text-xs text-emerald-600 hover:underline">Refresh</button>
           </div>
           <ul id="storage-list" class="divide-y divide-gray-100 text-sm text-gray-700 min-h-[2rem]">
             <li class="py-2 text-xs text-gray-400">Loading…</li>
@@ -102,7 +111,7 @@
           <input id="category-name" type="text" placeholder="New category…"
             class="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" required />
           <button type="submit"
-            class="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200 transition-colors">
+            class="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition-colors">
             + Category
           </button>
         </form>
@@ -197,7 +206,7 @@
             <li class="py-2 flex items-center justify-between gap-2">
               <a href="/api/storage/files/${encodeURIComponent(f.filename)}"
                  target="_blank"
-                 class="truncate text-indigo-600 hover:underline text-xs font-mono"
+                 class="truncate text-emerald-600 hover:underline text-xs font-mono"
                  title="${escHtml(f.filename)}">${escHtml(f.filename)}</a>
               <span class="text-xs text-gray-400 shrink-0">${fmt(f.size)}</span>
             </li>`).join('')
@@ -493,10 +502,27 @@
         document.querySelectorAll('.tab-panel').forEach(el => el.classList.add('hidden'))
         document.querySelectorAll('.tab-btn').forEach(btn => {
           const active = btn.dataset.tab === name
-          btn.classList.toggle('border-b-2', active)
-          btn.classList.toggle('border-indigo-600', active)
-          btn.classList.toggle('text-indigo-600', active)
-          btn.classList.toggle('text-gray-500', !active)
+          const tabName = btn.dataset.tab
+          
+          // Remove all color classes
+          btn.classList.remove('text-indigo-600', 'text-amber-600', 'text-emerald-600')
+          btn.classList.remove('bg-indigo-50', 'bg-amber-50', 'bg-emerald-50')
+          btn.classList.remove('border-indigo-300', 'border-amber-300', 'border-emerald-300')
+          btn.classList.remove('text-gray-500')
+          
+          if (active) {
+            // Active state with tab-specific colors
+            if (tabName === 'bookmarks') {
+              btn.classList.add('bg-indigo-50', 'text-indigo-600', 'border-indigo-300')
+            } else if (tabName === 'mail') {
+              btn.classList.add('bg-amber-50', 'text-amber-600', 'border-amber-300')
+            } else if (tabName === 'storage') {
+              btn.classList.add('bg-emerald-50', 'text-emerald-600', 'border-emerald-300')
+            }
+          } else {
+            // Inactive state
+            btn.classList.add('text-gray-500')
+          }
         })
         const panel = document.getElementById('tab-' + name)
         if (panel) panel.classList.remove('hidden')
