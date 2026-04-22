@@ -6,8 +6,11 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"mime"
+	"net/http"
 	"net/mail"
 	"net/smtp"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -118,18 +121,18 @@ func buildMessage(from string, msg Message) []byte {
 
 	// Write attachments
 	for _, att := range msg.Attachments {
+		filename := sanitizeAttachmentFilename(att.Filename)
+		contentType := detectAttachmentContentType(att)
+
 		buf.WriteString("--" + boundary + "\r\n")
-		buf.WriteString(fmt.Sprintf("Content-Type: application/octet-stream; name=%q\r\n", att.Filename))
+		fmt.Fprintf(buf, "Content-Type: %s; name=%q\r\n", contentType, filename)
 		buf.WriteString("Content-Transfer-Encoding: base64\r\n")
-		buf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=%q\r\n\r\n", att.Filename))
+		fmt.Fprintf(buf, "Content-Disposition: attachment; filename=%q\r\n\r\n", filename)
 
 		// Encode attachment data as base64 with line breaks every 76 chars
 		encoded := base64.StdEncoding.EncodeToString(att.Data)
 		for i := 0; i < len(encoded); i += 76 {
-			end := i + 76
-			if end > len(encoded) {
-				end = len(encoded)
-			}
+			end := min(i+76, len(encoded))
 			buf.WriteString(encoded[i:end] + "\r\n")
 		}
 	}
@@ -143,4 +146,28 @@ func sanitizeHeaderValue(in string) string {
 	out := strings.ReplaceAll(in, "\r", "")
 	out = strings.ReplaceAll(out, "\n", "")
 	return strings.TrimSpace(out)
+}
+
+func sanitizeAttachmentFilename(in string) string {
+	trimmed := sanitizeHeaderValue(in)
+	if trimmed == "" {
+		return "attachment"
+	}
+
+	return strings.ReplaceAll(trimmed, "\"", "")
+}
+
+func detectAttachmentContentType(att Attachment) string {
+	ext := strings.ToLower(filepath.Ext(att.Filename))
+	if ext != "" {
+		if byExt := mime.TypeByExtension(ext); byExt != "" {
+			return byExt
+		}
+	}
+
+	if len(att.Data) > 0 {
+		return http.DetectContentType(att.Data)
+	}
+
+	return "application/octet-stream"
 }
