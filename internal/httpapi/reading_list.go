@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -85,6 +86,55 @@ func (h handlers) addReadingListItem(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, apiErrorResponse{Error: "failed to add reading list item"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, readingListItemToResponse(item))
+}
+
+// addReadingListItemFromBookmarklet godoc
+// @Summary Add reading-list item from bookmarklet query
+// @Tags reading-list
+// @Produce json
+// @Param url query string true "URL to add"
+// @Param return_to query string false "Optional URL to redirect back to after save"
+// @Success 201 {object} readingListItemResponse
+// @Success 303 {string} string "Redirect back to return_to"
+// @Failure 400 {object} apiErrorResponse
+// @Failure 500 {object} apiErrorResponse
+// @Router /api/reading-list/bookmarklet-input [get]
+func (h handlers) addReadingListItemFromBookmarklet(c *gin.Context) {
+	rawURL := strings.TrimSpace(c.Query("url"))
+	returnTo := strings.TrimSpace(c.Query("return_to"))
+	if rawURL == "" {
+		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "url query parameter is required"})
+		return
+	}
+
+	// Be lenient with pasted bookmarklet formats that may include surrounding quotes.
+	rawURL = strings.Trim(rawURL, "'\"")
+
+	item, err := h.svc.AddReadingListItem(c.Request.Context(), service.AddReadingListItemInput{URL: rawURL})
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidReadingListInput) {
+			c.JSON(http.StatusBadRequest, apiErrorResponse{Error: err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, apiErrorResponse{Error: "failed to add reading list item"})
+		return
+	}
+
+	if returnTo != "" {
+		target, err := url.Parse(returnTo)
+		if err != nil || !target.IsAbs() || (target.Scheme != "http" && target.Scheme != "https") {
+			c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "return_to must be an absolute http or https URL"})
+			return
+		}
+
+		q := target.Query()
+		q.Set("reading_list_saved", "1")
+		target.RawQuery = q.Encode()
+		c.Redirect(http.StatusSeeOther, target.String())
 		return
 	}
 

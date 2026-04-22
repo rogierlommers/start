@@ -56,3 +56,19 @@ Storage environment variables:
 - `STORAGE_UPLOAD_DIR` (optional, defaults to `uploads`)
 - `STORAGE_MAX_UPLOAD_MB` (optional, defaults to `100`)
 - `STORAGE_CLEANUP_DAYS` (optional, defaults to `30`; set to `0` to disable scheduled cleanup)
+
+## Reading List Bookmarklet
+
+Reading-list endpoints:
+
+- `POST /api/reading-list/items`
+- `GET /api/reading-list/items`
+- `GET /api/reading-list/rss`
+- `GET /api/reading-list/bookmarklet-input?url={encodedUrl}&return_to={encodedUrl}`
+
+The bookmarklet endpoint adds the incoming `url` as a new reading-list item.
+If `return_to` is provided, it redirects back to that URL after saving.
+
+Bookmarklet one-liner:
+
+`javascript:(()=>{const cur=location.href;location.href='http://127.0.0.1:3000/api/reading-list/bookmarklet-input?url='+encodeURIComponent(cur)+'&return_to='+encodeURIComponent(cur)+'&_='+Date.now()})()`

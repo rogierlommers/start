@@ -430,6 +430,40 @@ paths:
       summary: Send email message with optional attachments
       tags:
       - mail
+  /api/reading-list/bookmarklet-input:
+    get:
+      parameters:
+      - description: URL to add
+        in: query
+        name: url
+        required: true
+        type: string
+      - description: Optional URL to redirect back to after save
+        in: query
+        name: return_to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/httpapi.readingListItemResponse'
+        "303":
+          description: Redirect back to return_to
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: Add reading-list item from bookmarklet query
+      tags:
+      - reading-list
   /api/reading-list/items:
     get:
       produces:

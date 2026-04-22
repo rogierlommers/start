@@ -40,6 +40,7 @@ func Register(router gin.IRouter, svc *service.Service, cfg config.Config) {
 	api.DELETE("/bookmarks/:id", h.deleteBookmark)
 
 	api.POST("/reading-list/items", h.addReadingListItem)
+	api.GET("/reading-list/bookmarklet-input", h.addReadingListItemFromBookmarklet)
 	api.GET("/reading-list/items", h.listReadingListItems)
 	api.GET("/reading-list/rss", h.getReadingListRSS)
 }
