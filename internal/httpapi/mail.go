@@ -89,7 +89,6 @@ func (h handlers) sendMail(c *gin.Context) {
 	}
 
 	// send actual mail via service layer (non-blocking, returns immediately after queuing the mail task)
-	logrus.Infof("queuing mail to %s with subject '%s' and %d attachment(s)", req.To, req.Subject, len(attachments))
 	err = h.svc.SendMail(c.Request.Context(), service.SendMailInput{
 		Body:        req.Body,
 		Subject:     req.Subject,
