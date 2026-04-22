@@ -75,18 +75,6 @@ func (s *Service) ListCategories(ctx context.Context) ([]Category, error) {
 	return out, nil
 }
 
-func (s *Service) DeleteCategory(ctx context.Context, id int64) error {
-	if id <= 0 {
-		return fmt.Errorf("%w: id must be a positive integer", ErrInvalidCategoryInput)
-	}
-
-	if err := s.store.DeleteCategory(ctx, id); err != nil {
-		return fmt.Errorf("delete category: %w", err)
-	}
-
-	return nil
-}
-
 func (s *Service) CreateBookmark(ctx context.Context, in CreateBookmarkInput) (Bookmark, error) {
 	rawURL := strings.TrimSpace(in.URL)
 	title := strings.TrimSpace(in.Title)

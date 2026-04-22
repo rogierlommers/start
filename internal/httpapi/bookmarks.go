@@ -112,33 +112,6 @@ func (h handlers) createCategory(c *gin.Context) {
 	c.JSON(http.StatusCreated, categoryResponse{ID: cat.ID, Name: cat.Name})
 }
 
-// deleteCategory godoc
-// @Summary Delete a category
-// @Tags bookmarks
-// @Param id path int true "Category ID"
-// @Success 204
-// @Failure 400 {object} apiErrorResponse
-// @Failure 500 {object} apiErrorResponse
-// @Router /api/categories/{id} [delete]
-func (h handlers) deleteCategory(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil || id <= 0 {
-		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "id must be a positive integer"})
-		return
-	}
-
-	if err := h.svc.DeleteCategory(c.Request.Context(), id); err != nil {
-		if errors.Is(err, service.ErrInvalidCategoryInput) {
-			c.JSON(http.StatusBadRequest, apiErrorResponse{Error: err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, apiErrorResponse{Error: "failed to delete category"})
-		return
-	}
-
-	c.Status(http.StatusNoContent)
-}
-
 // listBookmarks godoc
 // @Summary List bookmarks
 // @Tags bookmarks

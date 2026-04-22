@@ -339,28 +339,6 @@ paths:
       summary: Create a category
       tags:
       - bookmarks
-  /api/categories/{id}:
-    delete:
-      parameters:
-      - description: Category ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      responses:
-        "204":
-          description: No Content
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/httpapi.apiErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/httpapi.apiErrorResponse'
-      summary: Delete a category
-      tags:
-      - bookmarks
   /api/mail/send:
     post:
       consumes:

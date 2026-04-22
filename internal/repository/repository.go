@@ -25,7 +25,6 @@ type Category struct {
 type CategoryStore interface {
 	CreateCategory(ctx context.Context, c Category) (Category, error)
 	ListCategories(ctx context.Context) ([]Category, error)
-	DeleteCategory(ctx context.Context, id int64) error
 }
 
 // Bookmark represents a stored bookmark entry.
@@ -81,10 +80,6 @@ func (n *NoopStore) CreateCategory(_ context.Context, c Category) (Category, err
 
 func (n *NoopStore) ListCategories(_ context.Context) ([]Category, error) {
 	return []Category{}, nil
-}
-
-func (n *NoopStore) DeleteCategory(_ context.Context, _ int64) error {
-	return nil
 }
 
 func (n *NoopStore) CreateBookmark(_ context.Context, b Bookmark) (Bookmark, error) {

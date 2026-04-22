@@ -53,19 +53,6 @@ func (m *MemoryStore) ListCategories(_ context.Context) ([]Category, error) {
 	return out, nil
 }
 
-func (m *MemoryStore) DeleteCategory(_ context.Context, id int64) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if _, ok := m.categories[id]; !ok {
-		return fmt.Errorf("category %d not found", id)
-	}
-
-	delete(m.categories, id)
-
-	return nil
-}
-
 func (m *MemoryStore) CreateBookmark(_ context.Context, b Bookmark) (Bookmark, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
