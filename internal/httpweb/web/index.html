@@ -186,7 +186,32 @@
         if (!iso) return 'Unknown time'
         const d = new Date(iso)
         if (Number.isNaN(d.getTime())) return 'Unknown time'
-        return d.toLocaleString()
+
+        const now = Date.now()
+        const diffMs = Math.max(0, now - d.getTime())
+        const minute = 60 * 1000
+        const hour = 60 * minute
+        const day = 24 * hour
+        const week = 7 * day
+
+        let relative
+        if (diffMs < minute) {
+          relative = 'just now'
+        } else if (diffMs < hour) {
+          const mins = Math.floor(diffMs / minute)
+          relative = `${mins} minute${mins === 1 ? '' : 's'} ago`
+        } else if (diffMs < day) {
+          const hours = Math.floor(diffMs / hour)
+          relative = `${hours} hour${hours === 1 ? '' : 's'} ago`
+        } else if (diffMs < week) {
+          const days = Math.floor(diffMs / day)
+          relative = `${days} day${days === 1 ? '' : 's'} ago`
+        } else {
+          const weeks = Math.floor(diffMs / week)
+          relative = `${weeks} week${weeks === 1 ? '' : 's'} ago`
+        }
+
+        return `${d.toLocaleString()} (${relative})`
       }
 
       // ── Mail ──────────────────────────────────────────────────

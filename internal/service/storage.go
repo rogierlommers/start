@@ -138,7 +138,10 @@ func (s *Service) ListStorageFiles(ctx context.Context) ([]StoredFile, error) {
 	}
 
 	sort.Slice(files, func(i, j int) bool {
-		return files[i].Filename < files[j].Filename
+		if files[i].UploadedAt.Equal(files[j].UploadedAt) {
+			return files[i].Filename < files[j].Filename
+		}
+		return files[i].UploadedAt.After(files[j].UploadedAt)
 	})
 
 	return files, nil
