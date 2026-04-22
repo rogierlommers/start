@@ -87,7 +87,30 @@
           <span class="text-lg">💾</span>
           <span>Storage</span>
         </button>
+        <button class="tab-btn flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 border-2 border-transparent hover:border-rose-200" data-tab="reading-list" role="tab">
+          <span class="text-lg">📚</span>
+          <span>Reading List</span>
+        </button>
       </div>
+
+      <!-- ── Reading List ─────────────────────────────────────── -->
+      <section id="tab-reading-list" class="tab-panel bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <h2 class="text-base font-semibold">Reading List</h2>
+          <div class="flex items-center gap-3">
+            <a id="reading-list-bookmarklet" href="#"
+              class="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+              title="Drag this to your bookmarks bar">
+              + Reading List Bookmarklet
+            </a>
+            <button onclick="loadReadingListItems()" class="text-xs text-rose-600 hover:underline">Refresh</button>
+          </div>
+        </div>
+        <p class="mb-3 text-xs text-gray-500">Drag the bookmarklet button to your browser bookmarks bar, then click it on any page to save that URL.</p>
+        <ul id="reading-list-items" class="divide-y divide-gray-100 text-sm text-gray-700 min-h-[2rem]">
+          <li class="py-2 text-xs text-gray-400">Loading…</li>
+        </ul>
+      </section>
 
       <!-- ── Mail ─────────────────────────────────────────────── -->
       <section id="tab-mail" class="tab-panel bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
@@ -413,6 +436,44 @@
         }
       })
 
+      // ── Reading List ──────────────────────────────────────────
+
+      async function loadReadingListItems() {
+        const list = document.getElementById('reading-list-items')
+        try {
+          const items = await apiFetch('/api/reading-list/items')
+          if (!items || items.length === 0) {
+            list.innerHTML = '<li class="py-2 text-xs text-gray-400">No reading list items yet.</li>'
+            return
+          }
+
+          list.innerHTML = items.map((item) => {
+            const title = String(item.title || '').trim() || item.url
+            return `
+              <li class="py-2.5 flex items-start justify-between gap-2">
+                <div class="min-w-0 flex-1">
+                  <a href="${escAttr(item.url)}" target="_blank" rel="noopener noreferrer"
+                     class="truncate text-rose-600 hover:underline text-sm font-medium block"
+                     title="${escAttr(title)}">${escHtml(title)}</a>
+                  <p class="truncate text-xs text-gray-500" title="${escAttr(item.url)}">${escHtml(item.url)}</p>
+                </div>
+                <span class="text-[11px] text-gray-400 shrink-0">${escHtml(fmtDateTime(item.created_at))}</span>
+              </li>`
+          }).join('')
+        } catch (err) {
+          list.innerHTML = `<li class="py-2 text-xs text-red-500">${escHtml(err.message)}</li>`
+        }
+      }
+
+      function initReadingListBookmarklet() {
+        const link = document.getElementById('reading-list-bookmarklet')
+        if (!link) return
+
+        const apiBase = window.location.origin
+        const bookmarklet = `javascript:(()=>{const cur=location.href;location.href='${apiBase}/api/reading-list/bookmarklet-input?url='+encodeURIComponent(cur)+'&return_to='+encodeURIComponent(cur)+'&_='+Date.now()})()`
+        link.setAttribute('href', bookmarklet)
+      }
+
       // ── Bookmarks ─────────────────────────────────────────────
 
       let categoriesCache = []
@@ -733,15 +794,17 @@
           const tabName = btn.dataset.tab
           
           // Remove all color classes
-          btn.classList.remove('text-indigo-600', 'text-amber-600', 'text-emerald-600')
-          btn.classList.remove('bg-indigo-50', 'bg-amber-50', 'bg-emerald-50')
-          btn.classList.remove('border-indigo-300', 'border-amber-300', 'border-emerald-300')
+          btn.classList.remove('text-indigo-600', 'text-rose-600', 'text-amber-600', 'text-emerald-600')
+          btn.classList.remove('bg-indigo-50', 'bg-rose-50', 'bg-amber-50', 'bg-emerald-50')
+          btn.classList.remove('border-indigo-300', 'border-rose-300', 'border-amber-300', 'border-emerald-300')
           btn.classList.remove('text-gray-500')
           
           if (active) {
             // Active state with tab-specific colors
             if (tabName === 'bookmarks') {
               btn.classList.add('bg-indigo-50', 'text-indigo-600', 'border-indigo-300')
+            } else if (tabName === 'reading-list') {
+              btn.classList.add('bg-rose-50', 'text-rose-600', 'border-rose-300')
             } else if (tabName === 'mail') {
               btn.classList.add('bg-amber-50', 'text-amber-600', 'border-amber-300')
             } else if (tabName === 'storage') {
@@ -798,7 +861,9 @@
       // ── Init ─────────────────────────────────────────────────
       const savedTab = (() => { try { return sessionStorage.getItem(TAB_STORAGE_KEY) } catch (_) { return null } })()
       activateTab(savedTab || 'bookmarks')
+      initReadingListBookmarklet()
       loadStorageFiles()
+      loadReadingListItems()
       loadCategories().then(() => loadBookmarks())
     </script>
   </body>
