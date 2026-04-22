@@ -117,9 +117,3 @@ func (s *Service) StartMailWorker() {
 		}
 	}()
 }
-
-// Close gracefully shuts down the mail worker, processing any queued emails.
-func (s *Service) Close() {
-	close(s.done)
-	close(s.mailQueue)
-}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -21,6 +22,7 @@ type Config struct {
 	ReadHeaderTimeout  time.Duration
 	EnableAccessLogs   bool
 	LogLevel           string
+	SQLitePath         string
 	StorageUploadDir   string
 	StorageMaxUploadMB int64
 	StorageCleanupDays int
@@ -49,6 +51,7 @@ func Load() (Config, error) {
 		// server settings
 		HostPort:         os.Getenv("HTTP_BIND_ADDR"),
 		LogLevel:         os.Getenv("LOG_LEVEL"),
+		SQLitePath:       os.Getenv("SQLITE_PATH"),
 		EnableAccessLogs: false, // default to false, can be enabled with env var
 
 		// storage settings
@@ -76,6 +79,10 @@ func Load() (Config, error) {
 
 	if rawUploadDir := os.Getenv("STORAGE_UPLOAD_DIR"); rawUploadDir != "" {
 		cfg.StorageUploadDir = rawUploadDir
+	}
+
+	if rawSQLitePath := strings.TrimSpace(os.Getenv("SQLITE_PATH")); rawSQLitePath != "" {
+		cfg.SQLitePath = rawSQLitePath
 	}
 
 	if rawUploadMB := os.Getenv("STORAGE_MAX_UPLOAD_MB"); rawUploadMB != "" {

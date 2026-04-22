@@ -27,6 +27,9 @@ go.work.sum
 # env file
 .env
 
+# sqlite
+start-service.db
+
 # uploads directory
 uploads/
 

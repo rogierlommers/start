@@ -4,6 +4,8 @@ import (
 	"start/internal/config"
 	"start/internal/mailer"
 	"start/internal/repository"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Service contains application use-cases.
@@ -30,5 +32,17 @@ func New(store repository.Store, sender mailer.Sender, cfg config.Config) *Servi
 		mailQueue: make(chan mailTask, 100), // buffered queue for up to 100 pending emails
 		done:      make(chan struct{}),
 		cfg:       cfg,
+	}
+}
+
+// Close gracefully shuts down all sevices, including background workers and the data store.
+func (s *Service) Close() {
+	close(s.done)
+	close(s.mailQueue)
+
+	if closer, ok := s.store.(interface{ Close() error }); ok {
+		if err := closer.Close(); err != nil {
+			logrus.Warnf("failed to close store: %v", err)
+		}
 	}
 }

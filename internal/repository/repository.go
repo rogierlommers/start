@@ -91,7 +91,7 @@ func (n *NoopStore) UpdateBookmark(_ context.Context, b Bookmark) (Bookmark, err
 	return b, nil
 }
 
-func (n *NoopStore) ListBookmarks(_ context.Context) ([]Bookmark, error) {
+func (n *NoopStore) ListBookmarks(_ context.Context, _ bool) ([]Bookmark, error) {
 	return []Bookmark{}, nil
 }
 

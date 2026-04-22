@@ -22,7 +22,7 @@ type ServerContext struct {
 }
 
 // NewHTTPServer builds an HTTP server configured with the project's Gin router.
-func NewHTTPServer(cfg config.Config) *ServerContext {
+func NewHTTPServer(cfg config.Config) (*ServerContext, error) {
 
 	// set Gin to release mode for production use
 	gin.SetMode(gin.ReleaseMode)
@@ -41,7 +41,10 @@ func NewHTTPServer(cfg config.Config) *ServerContext {
 	httpmiddleware.RegisterGlobal(router)
 
 	// persistency layer
-	store := repository.NewMemoryStore()
+	store, err := repository.NewSQLiteStore(cfg.SQLitePath)
+	if err != nil {
+		return nil, err
+	}
 
 	// mailer setup, using SMTP if configured, otherwise a disabled sender
 	var sender mailer.Sender = mailer.DisabledSender{}
@@ -76,5 +79,5 @@ func NewHTTPServer(cfg config.Config) *ServerContext {
 			ReadHeaderTimeout: cfg.ReadHeaderTimeout,
 		},
 		Service: svc,
-	}
+	}, nil
 }

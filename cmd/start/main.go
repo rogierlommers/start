@@ -26,7 +26,10 @@ func main() {
 	}
 
 	// get a configured HTTP server instance
-	ctx := server.NewHTTPServer(cfg)
+	ctx, err := server.NewHTTPServer(cfg)
+	if err != nil {
+		logrus.Fatalf("failed to initialize HTTP server: %v", err)
+	}
 	defer ctx.Service.Close()
 
 	// set up graceful shutdown on SIGINT/SIGTERM
