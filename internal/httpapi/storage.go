@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"start/internal/service"
@@ -242,6 +243,15 @@ func (h handlers) downloadStorageFile(c *gin.Context) {
 
 	if opened.ContentType != "" {
 		c.Header("Content-Type", opened.ContentType)
+	} else {
+		c.Header("Content-Type", "application/octet-stream")
 	}
+
+	// Let browsers preview image files inline; keep download behavior for other content types.
+	if strings.HasPrefix(opened.ContentType, "image/") {
+		c.File(opened.Path)
+		return
+	}
+
 	c.FileAttachment(opened.Path, opened.Filename)
 }
