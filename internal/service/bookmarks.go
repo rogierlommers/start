@@ -27,6 +27,7 @@ type Bookmark struct {
 	Title      string
 	CategoryID int64
 	Position   int
+	Hidden     bool
 	CreatedAt  time.Time
 }
 
@@ -148,8 +149,8 @@ func (s *Service) UpdateBookmark(ctx context.Context, in UpdateBookmarkInput) (B
 	return repoBookmarkToService(b), nil
 }
 
-func (s *Service) ListBookmarks(ctx context.Context) ([]Bookmark, error) {
-	rows, err := s.store.ListBookmarks(ctx)
+func (s *Service) ListBookmarks(ctx context.Context, includeHidden bool) ([]Bookmark, error) {
+	rows, err := s.store.ListBookmarks(ctx, includeHidden)
 	if err != nil {
 		return nil, fmt.Errorf("list bookmarks: %w", err)
 	}
@@ -204,6 +205,41 @@ func (s *Service) DeleteBookmark(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (s *Service) ToggleBookmarkHidden(ctx context.Context, id int64, hidden bool) (Bookmark, error) {
+	if id <= 0 {
+		return Bookmark{}, fmt.Errorf("%w: id must be a positive integer", ErrInvalidBookmarkInput)
+	}
+
+	// Get existing bookmark (includeHidden=true to find both visible and hidden)
+	bookmarks, err := s.store.ListBookmarks(ctx, true)
+	if err != nil {
+		return Bookmark{}, fmt.Errorf("toggle bookmark hidden: %w", err)
+	}
+
+	var existing repository.Bookmark
+	found := false
+	for _, b := range bookmarks {
+		if b.ID == id {
+			existing = b
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return Bookmark{}, ErrBookmarkNotFound
+	}
+
+	// Update hidden status
+	existing.Hidden = hidden
+	bm, err := s.store.UpdateBookmark(ctx, existing)
+	if err != nil {
+		return Bookmark{}, fmt.Errorf("toggle bookmark hidden: %w", err)
+	}
+
+	return repoBookmarkToService(bm), nil
+}
+
 func repoBookmarkToService(b repository.Bookmark) Bookmark {
 	return Bookmark{
 		ID:         b.ID,
@@ -211,6 +247,7 @@ func repoBookmarkToService(b repository.Bookmark) Bookmark {
 		Title:      b.Title,
 		CategoryID: b.CategoryID,
 		Position:   b.Position,
+		Hidden:     b.Hidden,
 		CreatedAt:  b.CreatedAt,
 	}
 }

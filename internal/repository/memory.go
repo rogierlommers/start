@@ -86,18 +86,21 @@ func (m *MemoryStore) UpdateBookmark(_ context.Context, b Bookmark) (Bookmark, e
 	existing.URL = b.URL
 	existing.Title = b.Title
 	existing.CategoryID = b.CategoryID
+	existing.Hidden = b.Hidden
 	m.bookmarks[b.ID] = existing
 
 	return existing, nil
 }
 
-func (m *MemoryStore) ListBookmarks(_ context.Context) ([]Bookmark, error) {
+func (m *MemoryStore) ListBookmarks(_ context.Context, includeHidden bool) ([]Bookmark, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	out := make([]Bookmark, 0, len(m.bookmarks))
 	for _, b := range m.bookmarks {
-		out = append(out, b)
+		if !b.Hidden || includeHidden {
+			out = append(out, b)
+		}
 	}
 
 	sort.Slice(out, func(i, j int) bool {

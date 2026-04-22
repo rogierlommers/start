@@ -35,6 +35,7 @@ func Register(router gin.IRouter, svc *service.Service, cfg config.Config) {
 	api.GET("/bookmarks", h.listBookmarks)
 	api.POST("/bookmarks", h.createBookmark)
 	api.PATCH("/bookmarks/:id", h.updateBookmark)
+	api.PATCH("/bookmarks/:id/hidden", h.toggleBookmarkHidden)
 	api.PATCH("/bookmarks/reorder", h.reorderBookmarks)
 	api.DELETE("/bookmarks/:id", h.deleteBookmark)
 

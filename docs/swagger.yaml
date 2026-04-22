@@ -20,6 +20,8 @@ definitions:
         type: integer
       created_at:
         type: string
+      hidden:
+        type: boolean
       id:
         type: integer
       position:
@@ -95,6 +97,11 @@ definitions:
         type: string
       size:
         type: integer
+    type: object
+  httpapi.toggleBookmarkHiddenRequest:
+    properties:
+      hidden:
+        type: boolean
     type: object
   httpapi.updateBookmarkRequest:
     properties:
@@ -258,6 +265,44 @@ paths:
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
       summary: Update a bookmark
+      tags:
+      - bookmarks
+  /api/bookmarks/{id}/hidden:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bookmark ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Hidden status
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.toggleBookmarkHiddenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.bookmarkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: Toggle bookmark hidden status
       tags:
       - bookmarks
   /api/bookmarks/reorder:

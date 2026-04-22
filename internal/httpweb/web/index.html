@@ -101,7 +101,13 @@
 
       <!-- ── Bookmarks ─────────────────────────────────────────── -->
       <section id="tab-bookmarks" class="tab-panel bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
-        <h2 class="text-base font-semibold mb-4">Bookmarks</h2>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold">Bookmarks</h2>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="show-hidden-toggle" class="w-4 h-4 rounded" />
+            <span class="text-xs text-gray-500">Show hidden</span>
+          </label>
+        </div>
 
         <!-- Bookmark list -->
         <div id="bookmarks-list" class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4 mb-5"></div>
@@ -267,7 +273,7 @@
 
       function bmRow(bm) {
         const li = document.createElement('li')
-        li.className = 'py-1.5 flex flex-col gap-2 cursor-default'
+        li.className = `py-1.5 flex flex-col gap-2 cursor-default ${bm.hidden ? 'opacity-50' : ''}`
         li.dataset.id = bm.id
 
         // View mode
@@ -275,11 +281,13 @@
         viewDiv.className = 'flex items-center gap-2'
         viewDiv.innerHTML = `
           <a href="${escAttr(bm.url)}" target="_blank" rel="noopener noreferrer"
-             class="text-indigo-600 hover:underline truncate text-sm flex-1">${escHtml(bm.title || bm.url)}</a>
+             class="text-indigo-600 hover:underline truncate text-sm flex-1 ${bm.hidden ? 'line-through' : ''}">${escHtml(bm.title || bm.url)}</a>
           <button data-move-up="${bm.id}"
             class="text-xs text-gray-400 hover:text-indigo-600 transition-colors shrink-0 px-1" title="Move up">↑</button>
           <button data-move-down="${bm.id}"
             class="text-xs text-gray-400 hover:text-indigo-600 transition-colors shrink-0 px-1" title="Move down">↓</button>
+          <button data-toggle-hidden="${bm.id}"
+            class="text-xs text-gray-400 hover:text-indigo-600 transition-colors shrink-0 px-1" title="${bm.hidden ? 'Show bookmark' : 'Hide bookmark'}">${bm.hidden ? '👁️‍🗨️' : '👁️'}</button>
           <button data-edit="${bm.id}"
             class="text-xs text-gray-400 hover:text-indigo-600 transition-colors shrink-0 px-1" title="Edit">✎</button>
           <button data-delete="${bm.id}"
@@ -309,10 +317,11 @@
         return li
       }
 
-      async function loadBookmarks() {
+      async function loadBookmarks(includeHidden = false) {
         const container = document.getElementById('bookmarks-list')
         try {
-          const bookmarks = await apiFetch('/api/bookmarks') || []
+          const query = includeHidden ? '?include_hidden=true' : ''
+          const bookmarks = await apiFetch('/api/bookmarks' + query) || []
           container.innerHTML = ''
           if (!bookmarks.length) {
             container.innerHTML = '<p class="text-xs text-gray-400">No bookmarks yet.</p>'
@@ -357,25 +366,7 @@
                 toast('Bookmark moved up')
               } catch (err) {
                 toast('Failed to move: ' + err.message, 'error')
-                loadBookmarks()
-              }
-              return
-            }
-
-            const moveDownBtn = e.target.closest('[data-move-down]')
-            if (moveDownBtn) {
-              const row = moveDownBtn.closest('li[data-id]')
-              if (!row || !row.nextElementSibling) {
-                toast('Cannot move down: already at bottom', 'warn')
-                return
-              }
-              row.parentNode.insertBefore(row.nextElementSibling, row)
-              try {
-                await persistBookmarkOrder()
-                toast('Bookmark moved down')
-              } catch (err) {
-                toast('Failed to move: ' + err.message, 'error')
-                loadBookmarks()
+                reloadBookmarksWithCurrentState()
               }
               return
             }
@@ -425,10 +416,31 @@
                   body: JSON.stringify({ url, title, category_id }),
                 })
                 toast('Bookmark updated')
-                loadBookmarks()
+                reloadBookmarksWithCurrentState()
               } catch (err) {
                 toast('Failed to update: ' + err.message, 'error')
                 saveBtn.disabled = false
+              }
+              return
+            }
+
+            const toggleBtn = e.target.closest('[data-toggle-hidden]')
+            if (toggleBtn) {
+              const row = toggleBtn.closest('li[data-id]')
+              if (!row) return
+              const id = Number(row.dataset.id)
+              const isCurrentlyHidden = toggleBtn.textContent.includes('🗨️')
+              try {
+                await apiFetch(`/api/bookmarks/${id}/hidden`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ hidden: !isCurrentlyHidden }),
+                })
+                toast(!isCurrentlyHidden ? 'Bookmark hidden' : 'Bookmark shown')
+                const showHidden = document.getElementById('show-hidden-toggle').checked
+                loadBookmarks(showHidden)
+              } catch (err) {
+                toast('Failed to toggle: ' + err.message, 'error')
               }
               return
             }
@@ -439,7 +451,7 @@
             try {
               await apiFetch(`/api/bookmarks/${id}`, { method: 'DELETE' })
               toast('Bookmark deleted')
-              loadBookmarks()
+              reloadBookmarksWithCurrentState()
             } catch (err) {
               toast(err.message, 'error')
             }
@@ -447,6 +459,11 @@
         } catch (err) {
           container.innerHTML = `<p class="text-xs text-red-500">${escHtml(err.message)}</p>`
         }
+      }
+
+      function reloadBookmarksWithCurrentState() {
+        const showHidden = document.getElementById('show-hidden-toggle')?.checked || false
+        loadBookmarks(showHidden)
       }
 
       document.getElementById('category-form').addEventListener('submit', async (e) => {
@@ -481,7 +498,7 @@
           toast('Bookmark added')
           document.getElementById('bookmark-url').value = ''
           document.getElementById('bookmark-title').value = ''
-          loadBookmarks()
+          reloadBookmarksWithCurrentState()
         } catch (err) {
           toast(err.message, 'error')
         }
@@ -533,11 +550,16 @@
         btn.addEventListener('click', () => activateTab(btn.dataset.tab))
       })
 
+      // Show/hide hidden bookmarks toggle
+      document.getElementById('show-hidden-toggle').addEventListener('change', (e) => {
+        loadBookmarks(e.target.checked)
+      })
+
       // ── Init ─────────────────────────────────────────────────
       const savedTab = (() => { try { return sessionStorage.getItem(TAB_STORAGE_KEY) } catch (_) { return null } })()
       activateTab(savedTab || 'bookmarks')
       loadStorageFiles()
-      loadCategories().then(() => loadBookmarks())
+      loadCategories().then(() => reloadBookmarksWithCurrentState())
     </script>
   </body>
 </html>

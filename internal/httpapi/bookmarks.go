@@ -26,6 +26,7 @@ type bookmarkResponse struct {
 	Title      string    `json:"title"`
 	CategoryID int64     `json:"category_id"`
 	Position   int       `json:"position"`
+	Hidden     bool      `json:"hidden"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 
@@ -49,6 +50,10 @@ type reorderBookmarksResponse struct {
 	Status string `json:"status"`
 }
 
+type toggleBookmarkHiddenRequest struct {
+	Hidden bool `json:"hidden"`
+}
+
 func bookmarkToResponse(b service.Bookmark) bookmarkResponse {
 	return bookmarkResponse{
 		ID:         b.ID,
@@ -56,6 +61,7 @@ func bookmarkToResponse(b service.Bookmark) bookmarkResponse {
 		Title:      b.Title,
 		CategoryID: b.CategoryID,
 		Position:   b.Position,
+		Hidden:     b.Hidden,
 		CreatedAt:  b.CreatedAt,
 	}
 }
@@ -120,7 +126,8 @@ func (h handlers) createCategory(c *gin.Context) {
 // @Failure 500 {object} apiErrorResponse
 // @Router /api/bookmarks [get]
 func (h handlers) listBookmarks(c *gin.Context) {
-	bookmarks, err := h.svc.ListBookmarks(c.Request.Context())
+	includeHidden := c.Query("include_hidden") == "true"
+	bookmarks, err := h.svc.ListBookmarks(c.Request.Context(), includeHidden)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, apiErrorResponse{Error: "failed to list bookmarks"})
 		return
@@ -278,4 +285,50 @@ func (h handlers) deleteBookmark(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+// toggleBookmarkHidden godoc
+// @Summary Toggle bookmark hidden status
+// @Tags bookmarks
+// @Accept json
+// @Produce json
+// @Param id path int true "Bookmark ID"
+// @Param body body toggleBookmarkHiddenRequest true "Hidden status"
+// @Success 200 {object} bookmarkResponse
+// @Failure 400 {object} apiErrorResponse
+// @Failure 422 {object} apiErrorResponse
+// @Failure 500 {object} apiErrorResponse
+// @Router /api/bookmarks/{id}/hidden [patch]
+func (h handlers) toggleBookmarkHidden(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "id must be a positive integer"})
+		return
+	}
+
+	var req toggleBookmarkHiddenRequest
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: err.Error()})
+		return
+	}
+
+	bm, err := h.svc.ToggleBookmarkHidden(c.Request.Context(), id, req.Hidden)
+	if err != nil {
+		if errors.Is(err, service.ErrBookmarkNotFound) {
+			c.JSON(http.StatusUnprocessableEntity, apiErrorResponse{Error: err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, apiErrorResponse{Error: "failed to toggle bookmark hidden status"})
+		return
+	}
+
+	c.JSON(http.StatusOK, bookmarkResponse{
+		ID:         bm.ID,
+		URL:        bm.URL,
+		Title:      bm.Title,
+		CategoryID: bm.CategoryID,
+		Position:   bm.Position,
+		Hidden:     bm.Hidden,
+		CreatedAt:  bm.CreatedAt,
+	})
 }

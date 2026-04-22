@@ -34,6 +34,7 @@ type Bookmark struct {
 	Title      string
 	CategoryID int64
 	Position   int
+	Hidden     bool
 	CreatedAt  time.Time
 }
 
@@ -41,7 +42,7 @@ type Bookmark struct {
 type BookmarkStore interface {
 	CreateBookmark(ctx context.Context, b Bookmark) (Bookmark, error)
 	UpdateBookmark(ctx context.Context, b Bookmark) (Bookmark, error)
-	ListBookmarks(ctx context.Context) ([]Bookmark, error)
+	ListBookmarks(ctx context.Context, includeHidden bool) ([]Bookmark, error)
 	ReorderBookmarks(ctx context.Context, ids []int64) error
 	DeleteBookmark(ctx context.Context, id int64) error
 }
