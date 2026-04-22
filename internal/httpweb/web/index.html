@@ -770,6 +770,31 @@
         renderBookmarks()
       })
 
+      // Keyboard shortcut: press "f" to focus bookmark search.
+      document.addEventListener('keydown', (e) => {
+        if (e.defaultPrevented || e.repeat) return
+        if (e.key.toLowerCase() !== 'f') return
+        if (e.metaKey || e.ctrlKey || e.altKey) return
+
+        const target = e.target
+        const isEditable = target && (
+          target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable
+        )
+        if (isEditable) return
+
+        const searchInput = document.getElementById('search-bookmarks')
+        if (!searchInput) return
+
+        // Ensure the bookmarks tab is visible before focusing.
+        activateTab('bookmarks')
+        e.preventDefault()
+        searchInput.focus()
+        searchInput.select()
+      })
+
       // ── Init ─────────────────────────────────────────────────
       const savedTab = (() => { try { return sessionStorage.getItem(TAB_STORAGE_KEY) } catch (_) { return null } })()
       activateTab(savedTab || 'bookmarks')
