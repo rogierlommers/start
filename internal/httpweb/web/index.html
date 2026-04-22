@@ -182,6 +182,13 @@
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
       }
 
+      function fmtDateTime(iso) {
+        if (!iso) return 'Unknown time'
+        const d = new Date(iso)
+        if (Number.isNaN(d.getTime())) return 'Unknown time'
+        return d.toLocaleString()
+      }
+
       // ── Mail ──────────────────────────────────────────────────
 
       document.getElementById('mail-form').addEventListener('submit', async (e) => {
@@ -214,10 +221,13 @@
           }
           list.innerHTML = files.map(f => `
             <li class="py-2 flex items-center justify-between gap-2">
-              <a href="/api/storage/files/${encodeURIComponent(f.filename)}"
-                 target="_blank"
-                 class="truncate text-emerald-600 hover:underline text-xs font-mono"
-                 title="${escHtml(f.filename)}">${escHtml(f.filename)}</a>
+              <div class="min-w-0 flex-1">
+                <a href="/api/storage/files/${encodeURIComponent(f.filename)}"
+                   target="_blank"
+                   class="truncate text-emerald-600 hover:underline text-xs font-mono block"
+                   title="${escHtml(f.filename)}">${escHtml(f.filename)}</a>
+                <span class="text-[11px] text-gray-400">Uploaded: ${escHtml(fmtDateTime(f.uploaded_at))}</span>
+              </div>
               <span class="text-xs text-gray-400 shrink-0">${fmt(f.size)}</span>
             </li>`).join('')
         } catch (err) {

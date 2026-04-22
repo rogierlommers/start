@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"start/internal/service"
 
@@ -10,18 +11,20 @@ import (
 )
 
 type uploadStorageFileResponse struct {
-	Filename string `json:"filename"`
-	Path     string `json:"path"`
-	Size     int64  `json:"size"`
+	Filename   string    `json:"filename"`
+	Path       string    `json:"path"`
+	Size       int64     `json:"size"`
+	UploadedAt time.Time `json:"uploaded_at"`
 }
 
 const maxUploadFilesPerRequest = 20
 
 type storageFileResponse struct {
-	Filename    string `json:"filename"`
-	Path        string `json:"path"`
-	Size        int64  `json:"size"`
-	ContentType string `json:"content_type"`
+	Filename    string    `json:"filename"`
+	Path        string    `json:"path"`
+	Size        int64     `json:"size"`
+	ContentType string    `json:"content_type"`
+	UploadedAt  time.Time `json:"uploaded_at"`
 }
 
 type uploadStorageFilesResponse struct {
@@ -32,11 +35,12 @@ type uploadStorageFilesResponse struct {
 }
 
 type uploadStorageFileResult struct {
-	Filename string `json:"filename"`
-	Path     string `json:"path,omitempty"`
-	Size     int64  `json:"size,omitempty"`
-	Status   string `json:"status"`
-	Error    string `json:"error,omitempty"`
+	Filename   string    `json:"filename"`
+	Path       string    `json:"path,omitempty"`
+	Size       int64     `json:"size,omitempty"`
+	UploadedAt time.Time `json:"uploaded_at,omitempty"`
+	Status     string    `json:"status"`
+	Error      string    `json:"error,omitempty"`
 }
 
 // uploadStorageFile godoc
@@ -85,9 +89,10 @@ func (h handlers) uploadStorageFile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, uploadStorageFileResponse{
-		Filename: stored.Filename,
-		Path:     stored.Path,
-		Size:     stored.Size,
+		Filename:   stored.Filename,
+		Path:       stored.Path,
+		Size:       stored.Size,
+		UploadedAt: stored.UploadedAt,
 	})
 }
 
@@ -162,6 +167,7 @@ func (h handlers) uploadStorageFiles(c *gin.Context) {
 		item.Status = "uploaded"
 		item.Path = stored.Path
 		item.Size = stored.Size
+		item.UploadedAt = stored.UploadedAt
 		uploaded++
 		results = append(results, item)
 	}
@@ -202,6 +208,7 @@ func (h handlers) listStorageFiles(c *gin.Context) {
 			Path:        f.Path,
 			Size:        f.Size,
 			ContentType: f.ContentType,
+			UploadedAt:  f.UploadedAt,
 		}
 	}
 

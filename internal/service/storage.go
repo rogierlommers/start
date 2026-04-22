@@ -33,6 +33,7 @@ type StoredFile struct {
 	Path        string
 	Size        int64
 	ContentType string
+	UploadedAt  time.Time
 }
 
 type OpenedStorageFile struct {
@@ -84,12 +85,14 @@ func (s *Service) UploadStorageFile(ctx context.Context, in UploadStorageFileInp
 		_ = os.Remove(fullPath)
 		return StoredFile{}, ErrStorageTooLarge
 	}
+	uploadedAt := time.Now().UTC()
 
 	return StoredFile{
 		Filename:    cleanName,
 		Path:        filepath.ToSlash(fullPath),
 		Size:        written,
 		ContentType: strings.TrimSpace(in.ContentType),
+		UploadedAt:  uploadedAt,
 	}, nil
 }
 
@@ -130,6 +133,7 @@ func (s *Service) ListStorageFiles(ctx context.Context) ([]StoredFile, error) {
 			Path:        filepath.ToSlash(fullPath),
 			Size:        info.Size(),
 			ContentType: detectStorageContentType(name),
+			UploadedAt:  info.ModTime().UTC(),
 		})
 	}
 
@@ -181,6 +185,7 @@ func (s *Service) OpenStorageFile(ctx context.Context, filename string) (OpenedS
 			Path:        filepath.ToSlash(fullPath),
 			Size:        info.Size(),
 			ContentType: detectStorageContentType(cleanName),
+			UploadedAt:  info.ModTime().UTC(),
 		},
 		File: f,
 	}, nil
