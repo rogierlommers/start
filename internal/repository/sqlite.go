@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	_ "modernc.org/sqlite"
 )
 
@@ -50,39 +52,102 @@ func (s *SQLiteStore) Close() error {
 }
 
 func (s *SQLiteStore) initSchema(ctx context.Context) error {
-	stmts := []string{
-		`PRAGMA foreign_keys = ON`,
-		`CREATE TABLE IF NOT EXISTS categories (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL
-		)`,
-		`CREATE TABLE IF NOT EXISTS bookmarks (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			url TEXT NOT NULL,
-			title TEXT NOT NULL DEFAULT '',
-			category_id INTEGER NOT NULL,
-			position INTEGER NOT NULL,
-			hidden INTEGER NOT NULL DEFAULT 0,
-			created_at TEXT NOT NULL,
-			FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
-		)`,
-		`CREATE INDEX IF NOT EXISTS idx_bookmarks_position ON bookmarks(position, id)`,
-		`CREATE TABLE IF NOT EXISTS reading_list_items (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			url TEXT NOT NULL,
-			title TEXT NOT NULL DEFAULT '',
-			created_at TEXT NOT NULL
-		)`,
-		`CREATE INDEX IF NOT EXISTS idx_reading_list_created_at ON reading_list_items(created_at DESC, id DESC)`,
+	if _, err := s.db.ExecContext(ctx, `PRAGMA foreign_keys = ON`); err != nil {
+		return fmt.Errorf("enable sqlite foreign keys: %w", err)
 	}
 
-	for _, stmt := range stmts {
-		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
-			return fmt.Errorf("initialize sqlite schema: %w", err)
+	return s.applyMigrations(ctx)
+}
+
+func (s *SQLiteStore) applyMigrations(ctx context.Context) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin migration transaction: %w", err)
+	}
+	defer rollbackTx(tx)
+
+	if _, err := tx.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS schema_migrations (
+			version INTEGER PRIMARY KEY,
+			name TEXT NOT NULL,
+			applied_at TEXT NOT NULL
+		)
+	`); err != nil {
+		return fmt.Errorf("create schema_migrations table: %w", err)
+	}
+
+	applied, err := appliedMigrationVersions(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	lastVersion := 0
+	appliedCount := 0
+	for _, m := range sqliteMigrations {
+		if m.version <= lastVersion {
+			return fmt.Errorf("invalid sqlite migration order at version %d", m.version)
 		}
+		lastVersion = m.version
+
+		if _, ok := applied[m.version]; ok {
+			continue
+		}
+
+		logrus.Infof("applying sqlite migration v%d (%s)", m.version, m.name)
+
+		for _, stmt := range m.statements {
+			if _, err := tx.ExecContext(ctx, stmt); err != nil {
+				return fmt.Errorf("apply sqlite migration %d (%s): %w", m.version, m.name, err)
+			}
+		}
+
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO schema_migrations(version, name, applied_at) VALUES(?, ?, ?)`,
+			m.version,
+			m.name,
+			time.Now().UTC().Format(time.RFC3339Nano),
+		); err != nil {
+			return fmt.Errorf("record sqlite migration %d (%s): %w", m.version, m.name, err)
+		}
+
+		appliedCount++
+		logrus.Infof("applied sqlite migration v%d (%s)", m.version, m.name)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit migration transaction: %w", err)
+	}
+
+	if appliedCount == 0 {
+		logrus.Info("no pending sqlite migrations")
+	} else {
+		logrus.Infof("sqlite migrations complete: %d applied", appliedCount)
 	}
 
 	return nil
+}
+
+func appliedMigrationVersions(ctx context.Context, tx *sql.Tx) (map[int]struct{}, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT version FROM schema_migrations`)
+	if err != nil {
+		return nil, fmt.Errorf("query applied migrations: %w", err)
+	}
+	defer rows.Close()
+
+	applied := make(map[int]struct{})
+	for rows.Next() {
+		var version int
+		if err := rows.Scan(&version); err != nil {
+			return nil, fmt.Errorf("scan applied migration version: %w", err)
+		}
+		applied[version] = struct{}{}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate applied migrations: %w", err)
+	}
+
+	return applied, nil
 }
 
 func (s *SQLiteStore) CreateCategory(ctx context.Context, c Category) (Category, error) {

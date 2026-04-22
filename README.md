@@ -65,6 +65,9 @@ Database environment variables:
 
 - `SQLITE_PATH` (optional, defaults to `start.db`)
 
+On startup, the backend automatically applies lightweight, versioned SQLite migrations.
+Applied migration versions are tracked in the `schema_migrations` table.
+
 ## Reading List Bookmarklet
 
 Reading-list endpoints:
