@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/mail"
-	"strings"
 
-	"start/internal/config"
 	"start/internal/mailer"
 
 	"github.com/sirupsen/logrus"
@@ -19,14 +17,14 @@ var (
 	ErrDisabledMailer   = errors.New("mailer is not configured")
 )
 
-const generatedSubjectMaxLen = 80
-
 type SendMailAttachment struct {
 	Filename string
 	Data     []byte
 }
 
 type SendMailInput struct {
+	To          string
+	Subject     string
 	Body        string
 	Attachments []SendMailAttachment
 }
@@ -37,15 +35,12 @@ func (s *Service) SendMail(ctx context.Context, in SendMailInput) error {
 		return ErrDisabledMailer
 	}
 
-	// determine to address
-	to, body, subject := deterimeRecipientBodyAndSubject(s.cfg, in.Body)
-
-	if to == "" || subject == "" || body == "" {
+	if in.To == "" || in.Subject == "" || in.Body == "" {
 		logrus.Error("invalid mail input: missing required fields")
 		return ErrInvalidMailInput
 	}
 
-	if _, err := mail.ParseAddress(to); err != nil {
+	if _, err := mail.ParseAddress(in.To); err != nil {
 		return fmt.Errorf("%w: invalid recipient", ErrInvalidMailInput)
 	}
 
@@ -55,7 +50,7 @@ func (s *Service) SendMail(ctx context.Context, in SendMailInput) error {
 		// skip attachment if filename equals body text (common when using Apple Shortcuts to
 		// send mail with a single attachment, where the filename is used as the body text and
 		// the actual attachment data is empty)
-		if att.Filename == body+".txt" {
+		if att.Filename == in.Body+".txt" {
 			continue
 		}
 
@@ -68,9 +63,9 @@ func (s *Service) SendMail(ctx context.Context, in SendMailInput) error {
 	// Queue the mail task (non-blocking) instead of sending directly
 	task := mailTask{
 		msg: mailer.Message{
-			To:          to,
-			Subject:     subject,
-			Body:        body,
+			To:          in.To,
+			Subject:     in.Subject,
+			Body:        in.Body,
 			Attachments: attachments,
 		},
 	}
@@ -127,47 +122,4 @@ func (s *Service) StartMailWorker() {
 func (s *Service) Close() {
 	close(s.done)
 	close(s.mailQueue)
-}
-
-// deterimeRecipientBodyAndSubject checks if the body starts with a "w " or "W ".
-// if so, then use the work email, otherwise use the private email.
-// also, if work email, then strip the leading "w" or "W" from the body to avoid confusion in the email content.
-// as the subject, use the first line of the body, truncated by 80 characters
-func deterimeRecipientBodyAndSubject(cfg config.Config, body string) (string, string, string) {
-	trimmedLeft := strings.TrimLeft(body, " \t\r\n")
-	recipient := cfg.MailerEmailPrivate
-
-	if strings.HasPrefix(trimmedLeft, "w ") || strings.HasPrefix(trimmedLeft, "W ") {
-		recipient = cfg.MailerEmailWork
-		trimmedLeft = trimmedLeft[2:]
-	}
-
-	cleanBody := strings.TrimSpace(trimmedLeft)
-	subject := deriveSubject(cleanBody)
-
-	return recipient, cleanBody, subject
-}
-
-func deriveSubject(body string) string {
-	trimmed := strings.TrimSpace(body)
-	if trimmed == "" {
-		return ""
-	}
-
-	parts := strings.SplitSeq(trimmed, "\n")
-	for part := range parts {
-		line := strings.TrimSpace(part)
-		if line == "" {
-			continue
-		}
-
-		runes := []rune(line)
-		if len(runes) <= generatedSubjectMaxLen {
-			return line
-		}
-
-		return strings.TrimSpace(string(runes[:generatedSubjectMaxLen]))
-	}
-
-	return ""
 }

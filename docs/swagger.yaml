@@ -276,6 +276,14 @@ paths:
         name: body
         required: true
         type: string
+      - description: Email subject
+        in: formData
+        name: subject
+        type: string
+      - description: Explicit recipient email address
+        in: formData
+        name: to
+        type: string
       - description: File attachments (can be multiple)
         in: formData
         name: attachments

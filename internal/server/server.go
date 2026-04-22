@@ -44,7 +44,7 @@ func NewHTTPServer(cfg config.Config) *ServerContext {
 	}
 
 	// service layer
-	svc := service.New(store, sender, cfg)
+	svc := service.New(store, sender)
 
 	// start background mail worker
 	svc.StartMailWorker()
@@ -58,7 +58,7 @@ func NewHTTPServer(cfg config.Config) *ServerContext {
 	}))
 
 	// register API and web handlers
-	httpapi.Register(router, svc)
+	httpapi.Register(router, svc, cfg)
 	httpweb.Register(router, svc)
 
 	return &ServerContext{

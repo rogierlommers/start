@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"start/internal/config"
 	"start/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -8,6 +9,7 @@ import (
 
 type handlers struct {
 	svc *service.Service
+	cfg config.Config
 }
 
 type apiErrorResponse struct {
@@ -15,8 +17,8 @@ type apiErrorResponse struct {
 }
 
 // Register registers JSON API routes.
-func Register(router gin.IRouter, svc *service.Service) {
-	h := handlers{svc: svc}
+func Register(router gin.IRouter, svc *service.Service, cfg config.Config) {
+	h := handlers{svc: svc, cfg: cfg}
 
 	router.GET("/openapi.yaml", h.openapiSpec)
 

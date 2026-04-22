@@ -19,7 +19,7 @@ type mailTask struct {
 	msg mailer.Message
 }
 
-func New(store repository.Store, sender mailer.Sender, cfg config.Config) *Service {
+func New(store repository.Store, sender mailer.Sender) *Service {
 	if sender == nil {
 		sender = mailer.DisabledSender{}
 	}
@@ -29,6 +29,5 @@ func New(store repository.Store, sender mailer.Sender, cfg config.Config) *Servi
 		mailer:    sender,
 		mailQueue: make(chan mailTask, 100), // buffered queue for up to 100 pending emails
 		done:      make(chan struct{}),
-		cfg:       cfg,
 	}
 }

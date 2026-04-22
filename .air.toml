@@ -1,0 +1,17 @@
+#:schema https://json.schemastore.org/any.json
+
+env_files = []
+root = "."
+tmp_dir = "/tmp/start"
+
+[build]
+cmd = "go run github.com/swaggo/swag/cmd/swag@v1.16.4 init --generalInfo main.go --dir cmd/start,internal/httpapi,internal/httpweb --output docs --outputTypes yaml --parseInternal --generatedTime=false && go build -o /tmp/start/main ./cmd/start"
+bin = "./tmp/main"
+include_ext = ["go", "yaml", "yml"]
+include_dir = ["cmd", "internal", "docs"]
+exclude_dir = ["tmp", ".git", "docs"]
+delay = 300
+stop_on_error = true
+
+[log]
+time = true
