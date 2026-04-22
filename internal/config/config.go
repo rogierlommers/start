@@ -19,6 +19,7 @@ type Config struct {
 	HostPort           string
 	ShutdownTimeout    time.Duration
 	ReadHeaderTimeout  time.Duration
+	EnableAccessLogs   bool
 	LogLevel           string
 	StorageUploadDir   string
 	StorageMaxUploadMB int64
@@ -46,8 +47,9 @@ func Load() (Config, error) {
 		ReadHeaderTimeout: defaultReadHeaderTimeout,
 
 		// server settings
-		HostPort: os.Getenv("HTTP_BIND_ADDR"),
-		LogLevel: os.Getenv("LOG_LEVEL"),
+		HostPort:         os.Getenv("HTTP_BIND_ADDR"),
+		LogLevel:         os.Getenv("LOG_LEVEL"),
+		EnableAccessLogs: false, // default to false, can be enabled with env var
 
 		// storage settings
 		StorageUploadDir:   os.Getenv("STORAGE_UPLOAD_DIR"),
@@ -92,5 +94,12 @@ func Load() (Config, error) {
 		cfg.StorageCleanupDays = cleanupDays
 	}
 
+	if raw := os.Getenv("ENABLE_ACCESS_LOGS"); raw != "" {
+		v, err := strconv.ParseBool(raw)
+		if err != nil {
+			return Config{}, fmt.Errorf("invalid ENABLE_ACCESS_LOGS value %q", raw)
+		}
+		cfg.EnableAccessLogs = v
+	}
 	return cfg, nil
 }

@@ -29,7 +29,14 @@ func NewHTTPServer(cfg config.Config) *ServerContext {
 
 	// create a new router with logging and recovery middleware.
 	router := gin.New()
-	router.Use(gin.Logger(), gin.Recovery())
+	router.Use(gin.Recovery())
+
+	if cfg.EnableAccessLogs {
+		logrus.Info("access logs are enabled")
+		router.Use(gin.Logger())
+	} else {
+		logrus.Info("access logs are disabled")
+	}
 
 	httpmiddleware.RegisterGlobal(router)
 
