@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>start</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      [x-cloak] { display: none; }
+    </style>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+          },
+        },
+      }
+    </script>
+  </head>
+  <body class="bg-gray-50 text-gray-900 min-h-screen font-sans antialiased">
+
+    <!-- Toast container -->
+    <div id="toasts" class="fixed top-4 right-4 z-50 flex flex-col gap-2 w-80 pointer-events-none"></div>
+
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-3">
+      <span class="text-lg font-semibold tracking-tight">start</span>
+      <span class="text-xs text-gray-400 font-mono">dashboard</span>
+    </header>
+
+    <main class="w-[90vw] max-w-none mx-auto px-4 py-8">
+
+      <!-- Tab bar -->
+      <div class="flex gap-1 border-b border-gray-200 mb-6" role="tablist">
+        <button class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition-colors" data-tab="bookmarks"    role="tab">Bookmarks</button>
+        <button class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition-colors" data-tab="mail"         role="tab">Notify</button>
+        <button class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition-colors" data-tab="storage"      role="tab">Storage</button>
+      </div>
+
+      <!-- ── Mail ─────────────────────────────────────────────── -->
+      <section id="tab-mail" class="tab-panel bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+        <h2 class="text-base font-semibold mb-4">Notify</h2>
+        <form id="mail-form" class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Body <span class="font-normal text-gray-400">(prefix <code class="font-mono">w </code> for work)</span></label>
+            <textarea id="mail-body" rows="4"
+              class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+              placeholder="Your message…" required></textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Attachments <span class="font-normal text-gray-400">(optional)</span></label>
+            <input id="mail-files" type="file" multiple
+              class="block w-full text-sm text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-indigo-700 hover:file:bg-indigo-100" />
+          </div>
+          <button type="submit"
+            class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 active:bg-indigo-800 transition-colors">
+            Send
+          </button>
+        </form>
+      </section>
+
+      <!-- ── Storage ───────────────────────────────────────────── -->
+      <section id="tab-storage" class="tab-panel bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+        <h2 class="text-base font-semibold mb-4">Storage</h2>
+
+        <!-- Upload -->
+        <form id="storage-form" class="space-y-3 mb-5">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Upload files</label>
+            <input id="storage-files" type="file" multiple required
+              class="block w-full text-sm text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-emerald-700 hover:file:bg-emerald-100" />
+          </div>
+          <button type="submit"
+            class="w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 active:bg-emerald-800 transition-colors">
+            Upload
+          </button>
+        </form>
+
+        <!-- File list -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-medium text-gray-500">Stored files</span>
+            <button onclick="loadStorageFiles()"
+              class="text-xs text-indigo-600 hover:underline">Refresh</button>
+          </div>
+          <ul id="storage-list" class="divide-y divide-gray-100 text-sm text-gray-700 min-h-[2rem]">
+            <li class="py-2 text-xs text-gray-400">Loading…</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ── Bookmarks ─────────────────────────────────────────── -->
+      <section id="tab-bookmarks" class="tab-panel bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+        <h2 class="text-base font-semibold mb-4">Bookmarks</h2>
+
+        <!-- Add category -->
+        <form id="category-form" class="flex gap-2 mb-4">
+          <input id="category-name" type="text" placeholder="New category…"
+            class="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" required />
+          <button type="submit"
+            class="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200 transition-colors">
+            + Category
+          </button>
+        </form>
+
+        <!-- Add bookmark -->
+        <form id="bookmark-form" class="space-y-2 mb-4">
+          <select id="bookmark-category"
+            class="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            <option value="">Select category…</option>
+          </select>
+          <input id="bookmark-url" type="url" placeholder="https://…"
+            class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" required />
+          <input id="bookmark-title" type="text" placeholder="Title (optional)"
+            class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+          <button type="submit"
+            class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors">
+            Add Bookmark
+          </button>
+        </form>
+
+        <!-- Bookmark list -->
+        <div id="bookmarks-list" class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4"></div>
+      </section>
+
+    </main>
+
+    <script>
+      // ── Utilities ──────────────────────────────────────────────
+
+      function toast(msg, type = 'success') {
+        const el = document.createElement('div')
+        const colors = type === 'error'
+          ? 'bg-red-600 text-white'
+          : type === 'warn'
+          ? 'bg-amber-500 text-white'
+          : 'bg-gray-900 text-white'
+        el.className = `pointer-events-auto rounded-xl px-4 py-3 text-sm shadow-lg ${colors}`
+        el.textContent = msg
+        document.getElementById('toasts').appendChild(el)
+        setTimeout(() => el.remove(), 4000)
+      }
+
+      async function apiFetch(path, opts = {}) {
+        const res = await fetch(path, opts)
+        if (!res.ok) {
+          let errMsg = `HTTP ${res.status}`
+          try {
+            const body = await res.json()
+            if (body.error) errMsg = body.error
+          } catch (_) {}
+          throw new Error(errMsg)
+        }
+        const ct = res.headers.get('content-type') || ''
+        if (ct.includes('application/json')) return res.json()
+        return null
+      }
+
+      function fmt(bytes) {
+        if (bytes < 1024) return bytes + ' B'
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+      }
+
+      // ── Mail ──────────────────────────────────────────────────
+
+      document.getElementById('mail-form').addEventListener('submit', async (e) => {
+        e.preventDefault()
+        const body = document.getElementById('mail-body').value.trim()
+        const files = document.getElementById('mail-files').files
+
+        const fd = new FormData()
+        fd.append('body', body)
+        for (const f of files) fd.append('attachments', f)
+
+        try {
+          await apiFetch('/api/mail/send', { method: 'POST', body: fd })
+          toast('Mail sent')
+          e.target.reset()
+        } catch (err) {
+          toast(err.message, 'error')
+        }
+      })
+
+      // ── Storage ───────────────────────────────────────────────
+
+      async function loadStorageFiles() {
+        const list = document.getElementById('storage-list')
+        try {
+          const files = await apiFetch('/api/storage/files')
+          if (!files || files.length === 0) {
+            list.innerHTML = '<li class="py-2 text-xs text-gray-400">No files stored.</li>'
+            return
+          }
+          list.innerHTML = files.map(f => `
+            <li class="py-2 flex items-center justify-between gap-2">
+              <a href="/api/storage/files/${encodeURIComponent(f.filename)}"
+                 target="_blank"
+                 class="truncate text-indigo-600 hover:underline text-xs font-mono"
+                 title="${escHtml(f.filename)}">${escHtml(f.filename)}</a>
+              <span class="text-xs text-gray-400 shrink-0">${fmt(f.size)}</span>
+            </li>`).join('')
+        } catch (err) {
+          list.innerHTML = `<li class="py-2 text-xs text-red-500">${escHtml(err.message)}</li>`
+        }
+      }
+
+      document.getElementById('storage-form').addEventListener('submit', async (e) => {
+        e.preventDefault()
+        const files = document.getElementById('storage-files').files
+        if (!files.length) return
+
+        const fd = new FormData()
+        for (const f of files) fd.append('files', f)
+
+        try {
+          const res = await apiFetch('/api/storage/uploads', { method: 'POST', body: fd })
+          const msg = res.failed > 0
+            ? `Uploaded ${res.uploaded}, failed ${res.failed}`
+            : `Uploaded ${res.uploaded} file${res.uploaded !== 1 ? 's' : ''}`
+          toast(msg, res.failed > 0 ? 'warn' : 'success')
+          e.target.reset()
+          loadStorageFiles()
+        } catch (err) {
+          toast(err.message, 'error')
+        }
+      })
+
+      // ── Bookmarks ─────────────────────────────────────────────
+
+      let categoriesCache = []
+
+      async function loadCategories() {
+        try {
+          categoriesCache = await apiFetch('/api/categories') || []
+          const sel = document.getElementById('bookmark-category')
+          sel.innerHTML = '<option value="">Select category…</option>' +
+            categoriesCache.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('')
+        } catch (err) {
+          toast('Failed to load categories: ' + err.message, 'error')
+        }
+      }
+
+      // Drag state for bookmark reordering
+      let dragSrcLi = null
+
+      async function persistBookmarkOrder() {
+        const ids = [...document.querySelectorAll('#bookmarks-list li[data-id]')]
+          .map(el => Number(el.dataset.id))
+
+        await apiFetch('/api/bookmarks/reorder', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids }),
+        })
+      }
+
+      function bmRow(bm) {
+        const li = document.createElement('li')
+        li.className = 'py-1.5 flex items-center gap-2 cursor-default'
+        li.draggable = true
+        li.dataset.id = bm.id
+        li.innerHTML = `
+          <span class="drag-handle text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing select-none shrink-0 text-base leading-none" title="Drag to reorder">⠿</span>
+          <a href="${escAttr(bm.url)}" target="_blank" rel="noopener noreferrer"
+             class="text-indigo-600 hover:underline truncate text-sm flex-1">${escHtml(bm.title || bm.url)}</a>
+          <button data-delete="${bm.id}"
+            class="text-xs text-gray-300 hover:text-red-500 transition-colors shrink-0 px-1" title="Delete">✕</button>`
+
+        li.addEventListener('dragstart', (e) => {
+          dragSrcLi = li
+          e.dataTransfer.effectAllowed = 'move'
+          li.classList.add('opacity-40')
+        })
+        li.addEventListener('dragend', () => {
+          dragSrcLi = null
+          li.classList.remove('opacity-40')
+          document.querySelectorAll('#bookmarks-list li').forEach(el => el.classList.remove('border-t-2', 'border-indigo-400'))
+        })
+        li.addEventListener('dragover', (e) => {
+          if (!dragSrcLi || dragSrcLi === li || dragSrcLi.parentNode !== li.parentNode) return
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'move'
+          document.querySelectorAll('#bookmarks-list li').forEach(el => el.classList.remove('border-t-2', 'border-indigo-400'))
+          li.classList.add('border-t-2', 'border-indigo-400')
+        })
+        li.addEventListener('drop', async (e) => {
+          e.preventDefault()
+          if (!dragSrcLi || dragSrcLi === li || dragSrcLi.parentNode !== li.parentNode) return
+          li.classList.remove('border-t-2', 'border-indigo-400')
+          // Move dragSrcLi before li in the same <ul>
+          li.parentNode.insertBefore(dragSrcLi, li)
+          try {
+            await persistBookmarkOrder()
+            toast('Bookmark order updated')
+          } catch (err) {
+            toast('Failed to save order: ' + err.message, 'error')
+            loadBookmarks()
+          }
+        })
+        return li
+      }
+
+      async function loadBookmarks() {
+        const container = document.getElementById('bookmarks-list')
+        try {
+          const bookmarks = await apiFetch('/api/bookmarks') || []
+          container.innerHTML = ''
+          if (!bookmarks.length) {
+            container.innerHTML = '<p class="text-xs text-gray-400">No bookmarks yet.</p>'
+            return
+          }
+
+          // Group by category
+          const byCategory = {}
+          for (const bm of bookmarks) {
+            const cat = categoriesCache.find(c => c.id === bm.category_id)
+            const catName = cat ? cat.name : 'Uncategorized'
+            if (!byCategory[catName]) byCategory[catName] = []
+            byCategory[catName].push(bm)
+          }
+
+          for (const [cat, items] of Object.entries(byCategory)) {
+            const section = document.createElement('div')
+            section.className = 'rounded-xl border border-gray-100 bg-gray-50/60 p-3'
+            const label = document.createElement('p')
+            label.className = 'text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1'
+            label.textContent = cat
+            const ul = document.createElement('ul')
+            ul.className = 'divide-y divide-gray-100'
+            items.forEach(bm => ul.appendChild(bmRow(bm)))
+            section.appendChild(label)
+            section.appendChild(ul)
+            container.appendChild(section)
+          }
+
+          // Delete via event delegation on the container
+          container.onclick = async (e) => {
+            const btn = e.target.closest('[data-delete]')
+            if (!btn) return
+            const id = Number(btn.dataset.delete)
+            try {
+              await apiFetch(`/api/bookmarks/${id}`, { method: 'DELETE' })
+              toast('Bookmark deleted')
+              loadBookmarks()
+            } catch (err) {
+              toast(err.message, 'error')
+            }
+          }
+        } catch (err) {
+          container.innerHTML = `<p class="text-xs text-red-500">${escHtml(err.message)}</p>`
+        }
+      }
+
+      document.getElementById('category-form').addEventListener('submit', async (e) => {
+        e.preventDefault()
+        const name = document.getElementById('category-name').value.trim()
+        try {
+          await apiFetch('/api/categories', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name }),
+          })
+          toast(`Category "${name}" created`)
+          document.getElementById('category-name').value = ''
+          await loadCategories()
+        } catch (err) {
+          toast(err.message, 'error')
+        }
+      })
+
+      document.getElementById('bookmark-form').addEventListener('submit', async (e) => {
+        e.preventDefault()
+        const category_id = Number(document.getElementById('bookmark-category').value)
+        const url = document.getElementById('bookmark-url').value.trim()
+        const title = document.getElementById('bookmark-title').value.trim()
+        if (!category_id) { toast('Select a category first', 'warn'); return }
+        try {
+          await apiFetch('/api/bookmarks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, title, category_id }),
+          })
+          toast('Bookmark added')
+          document.getElementById('bookmark-url').value = ''
+          document.getElementById('bookmark-title').value = ''
+          loadBookmarks()
+        } catch (err) {
+          toast(err.message, 'error')
+        }
+      })
+
+      // ── XSS helpers ───────────────────────────────────────────
+      function escHtml(s) {
+        return String(s)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+      }
+      function escAttr(s) { return escHtml(s) }
+
+      // ── Tabs ──────────────────────────────────────────────
+      const TAB_STORAGE_KEY = 'active-tab'
+
+      function activateTab(name) {
+        document.querySelectorAll('.tab-panel').forEach(el => el.classList.add('hidden'))
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+          const active = btn.dataset.tab === name
+          btn.classList.toggle('border-b-2', active)
+          btn.classList.toggle('border-indigo-600', active)
+          btn.classList.toggle('text-indigo-600', active)
+          btn.classList.toggle('text-gray-500', !active)
+        })
+        const panel = document.getElementById('tab-' + name)
+        if (panel) panel.classList.remove('hidden')
+        try { sessionStorage.setItem(TAB_STORAGE_KEY, name) } catch (_) {}
+      }
+
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => activateTab(btn.dataset.tab))
+      })
+
+      // ── Init ─────────────────────────────────────────────────
+      const savedTab = (() => { try { return sessionStorage.getItem(TAB_STORAGE_KEY) } catch (_) { return null } })()
+      activateTab(savedTab || 'bookmarks')
+      loadStorageFiles()
+      loadCategories().then(() => loadBookmarks())
+    </script>
+  </body>
+</html>
