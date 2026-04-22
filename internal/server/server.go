@@ -46,8 +46,9 @@ func NewHTTPServer(cfg config.Config) *ServerContext {
 	// service layer
 	svc := service.New(store, sender, cfg)
 
-	// start background mail worker
+	// start background workers for mail and storage cleanup
 	svc.StartMailWorker()
+	svc.StartStorageCleanupWorker()
 
 	// API documentation endpoint
 	router.GET("/docs/*any", openapiui.WrapHandler(openapiui.Config{

@@ -54,4 +54,5 @@ If `SMTP_HOST` or `SMTP_FROM` are not configured, the mail endpoint returns `503
 Storage environment variables:
 
 - `STORAGE_UPLOAD_DIR` (optional, defaults to `uploads`)
-- `STORAGE_MAX_UPLOAD_MB` (optional, defaults to `10`)
+- `STORAGE_MAX_UPLOAD_MB` (optional, defaults to `100`)
+- `STORAGE_CLEANUP_DAYS` (optional, defaults to `30`; set to `0` to disable scheduled cleanup)

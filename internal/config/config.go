@@ -22,6 +22,7 @@ type Config struct {
 	LogLevel           string
 	StorageUploadDir   string
 	StorageMaxUploadMB int64
+	StorageCleanupDays int
 	SMTPHost           string
 	SMTPPort           int
 	SMTPUsername       string
@@ -51,6 +52,7 @@ func Load() (Config, error) {
 		// storage settings
 		StorageUploadDir:   os.Getenv("STORAGE_UPLOAD_DIR"),
 		StorageMaxUploadMB: 100, // default max upload size of 100 MB
+		StorageCleanupDays: 30,
 
 		// mailer settings
 		SMTPHost:           os.Getenv("MAILER_SMTP_HOST"),
@@ -80,6 +82,14 @@ func Load() (Config, error) {
 			return Config{}, fmt.Errorf("invalid STORAGE_MAX_UPLOAD_MB value %q", rawUploadMB)
 		}
 		cfg.StorageMaxUploadMB = uploadMB
+	}
+
+	if rawCleanupDays := os.Getenv("STORAGE_CLEANUP_DAYS"); rawCleanupDays != "" {
+		cleanupDays, err := strconv.Atoi(rawCleanupDays)
+		if err != nil || cleanupDays < 0 {
+			return Config{}, fmt.Errorf("invalid STORAGE_CLEANUP_DAYS value %q", rawCleanupDays)
+		}
+		cfg.StorageCleanupDays = cleanupDays
 	}
 
 	return cfg, nil

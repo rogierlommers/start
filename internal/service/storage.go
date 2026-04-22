@@ -10,6 +10,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -227,4 +230,94 @@ func detectStorageContentType(filename string) string {
 	}
 
 	return "application/octet-stream"
+}
+
+// StartStorageCleanupWorker starts a daily cleanup loop that deletes files older than configured retention days.
+// STORAGE_CLEANUP_DAYS=0 disables cleanup.
+func (s *Service) StartStorageCleanupWorker() {
+	retentionDays := s.cfg.StorageCleanupDays
+	if retentionDays <= 0 {
+		logrus.Info("storage cleanup disabled")
+		return
+	}
+
+	go func() {
+		// Run once at startup so old files are cleaned without waiting for the first tick.
+		if deleted, err := s.cleanupStorageOlderThan(context.Background(), retentionDays); err != nil {
+			logrus.Errorf("storage cleanup failed: %v", err)
+		} else if deleted > 0 {
+			logrus.Infof("storage cleanup removed %d file(s)", deleted)
+		}
+
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				deleted, err := s.cleanupStorageOlderThan(context.Background(), retentionDays)
+				if err != nil {
+					logrus.Errorf("storage cleanup failed: %v", err)
+					continue
+				}
+				if deleted > 0 {
+					logrus.Infof("storage cleanup removed %d file(s)", deleted)
+				}
+			case <-s.done:
+				return
+			}
+		}
+	}()
+}
+
+func (s *Service) cleanupStorageOlderThan(ctx context.Context, days int) (int, error) {
+	if ctx.Err() != nil {
+		return 0, ctx.Err()
+	}
+	if days <= 0 {
+		return 0, nil
+	}
+
+	uploadDir := strings.TrimSpace(s.cfg.StorageUploadDir)
+	if uploadDir == "" {
+		return 0, fmt.Errorf("invalid upload directory configuration")
+	}
+
+	entries, err := os.ReadDir(uploadDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("read upload directory: %w", err)
+	}
+
+	cutoff := time.Now().AddDate(0, 0, -days)
+	deleted := 0
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		info, statErr := entry.Info()
+		if statErr != nil {
+			continue
+		}
+
+		if !info.ModTime().Before(cutoff) {
+			continue
+		}
+
+		fullPath := filepath.Join(uploadDir, entry.Name())
+		if removeErr := os.Remove(fullPath); removeErr != nil {
+			logrus.Warnf("storage cleanup failed to remove %s: %v", fullPath, removeErr)
+			continue
+		} else {
+			logrus.Infof("storage cleanup removed %s (last modified: %s)", fullPath, info.ModTime().Format(time.RFC3339))
+		}
+
+		deleted++
+	}
+
+	return deleted, nil
 }
