@@ -43,3 +43,15 @@ SMTP environment variables:
 - `SMTP_FROM`
 
 If `SMTP_HOST` or `SMTP_FROM` are not configured, the mail endpoint returns `503`.
+
+## Storage Upload API
+
+- `POST /api/storage/upload` (multipart form field: `file`)
+- `POST /api/storage/uploads` (multipart form field: `files`, repeat for multiple files)
+- `GET /api/storage/files` (list uploaded files)
+- `GET /api/storage/files/{filename}` (download a specific uploaded file)
+
+Storage environment variables:
+
+- `STORAGE_UPLOAD_DIR` (optional, defaults to `uploads`)
+- `STORAGE_MAX_UPLOAD_MB` (optional, defaults to `10`)

@@ -24,6 +24,10 @@ func Register(router gin.IRouter, svc *service.Service, cfg config.Config) {
 
 	api := router.Group("/api")
 	api.POST("/mail/send", h.sendMail)
+	api.POST("/storage/upload", h.uploadStorageFile)
+	api.POST("/storage/uploads", h.uploadStorageFiles)
+	api.GET("/storage/files", h.listStorageFiles)
+	api.GET("/storage/files/:filename", h.downloadStorageFile)
 
 	api.GET("/categories", h.listCategories)
 	api.POST("/categories", h.createCategory)

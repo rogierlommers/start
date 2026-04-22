@@ -85,6 +85,52 @@ definitions:
       status:
         type: string
     type: object
+  httpapi.storageFileResponse:
+    properties:
+      content_type:
+        type: string
+      filename:
+        type: string
+      path:
+        type: string
+      size:
+        type: integer
+    type: object
+  httpapi.uploadStorageFileResponse:
+    properties:
+      filename:
+        type: string
+      path:
+        type: string
+      size:
+        type: integer
+    type: object
+  httpapi.uploadStorageFileResult:
+    properties:
+      error:
+        type: string
+      filename:
+        type: string
+      path:
+        type: string
+      size:
+        type: integer
+      status:
+        type: string
+    type: object
+  httpapi.uploadStorageFilesResponse:
+    properties:
+      failed:
+        type: integer
+      results:
+        items:
+          $ref: '#/definitions/httpapi.uploadStorageFileResult'
+        type: array
+      status:
+        type: string
+      uploaded:
+        type: integer
+    type: object
 info:
   contact: {}
   description: API documentation generated from handler annotations.
@@ -368,4 +414,120 @@ paths:
       summary: Reading-list RSS feed
       tags:
       - reading-list
+  /api/storage/files:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/httpapi.storageFileResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: List uploaded storage files
+      tags:
+      - storage
+  /api/storage/files/{filename}:
+    get:
+      parameters:
+      - description: Stored filename
+        in: path
+        name: filename
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: Download a storage file
+      tags:
+      - storage
+  /api/storage/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/httpapi.uploadStorageFileResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: Upload a file to server storage
+      tags:
+      - storage
+  /api/storage/uploads:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: Files to upload (repeat field)
+        in: formData
+        name: files
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/httpapi.uploadStorageFilesResponse'
+        "207":
+          description: Multi-Status
+          schema:
+            $ref: '#/definitions/httpapi.uploadStorageFilesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: Upload multiple files to server storage
+      tags:
+      - storage
 swagger: "2.0"

@@ -20,6 +20,8 @@ type Config struct {
 	ShutdownTimeout    time.Duration
 	ReadHeaderTimeout  time.Duration
 	LogLevel           string
+	StorageUploadDir   string
+	StorageMaxUploadMB int64
 	SMTPHost           string
 	SMTPPort           int
 	SMTPUsername       string
@@ -38,10 +40,19 @@ func Load() (Config, error) {
 	}
 
 	cfg := Config{
-		HostPort:           os.Getenv("HTTP_BIND_ADDR"),
-		LogLevel:           os.Getenv("LOG_LEVEL"),
-		ShutdownTimeout:    defaultShutdownTimeout,
-		ReadHeaderTimeout:  defaultReadHeaderTimeout,
+		// set defaults for timeouts and other settings
+		ShutdownTimeout:   defaultShutdownTimeout,
+		ReadHeaderTimeout: defaultReadHeaderTimeout,
+
+		// server settings
+		HostPort: os.Getenv("HTTP_BIND_ADDR"),
+		LogLevel: os.Getenv("LOG_LEVEL"),
+
+		// storage settings
+		StorageUploadDir:   os.Getenv("STORAGE_UPLOAD_DIR"),
+		StorageMaxUploadMB: 100, // default max upload size of 100 MB
+
+		// mailer settings
 		SMTPHost:           os.Getenv("MAILER_SMTP_HOST"),
 		SMTPUsername:       os.Getenv("MAILER_SMTP_USERNAME"),
 		SMTPPassword:       os.Getenv("MAILER_SMTP_PASSWORD"),
@@ -57,6 +68,18 @@ func Load() (Config, error) {
 			return Config{}, fmt.Errorf("invalid SMTP_PORT value %q", rawPort)
 		}
 		cfg.SMTPPort = port
+	}
+
+	if rawUploadDir := os.Getenv("STORAGE_UPLOAD_DIR"); rawUploadDir != "" {
+		cfg.StorageUploadDir = rawUploadDir
+	}
+
+	if rawUploadMB := os.Getenv("STORAGE_MAX_UPLOAD_MB"); rawUploadMB != "" {
+		uploadMB, err := strconv.ParseInt(rawUploadMB, 10, 64)
+		if err != nil || uploadMB <= 0 {
+			return Config{}, fmt.Errorf("invalid STORAGE_MAX_UPLOAD_MB value %q", rawUploadMB)
+		}
+		cfg.StorageMaxUploadMB = uploadMB
 	}
 
 	return cfg, nil
