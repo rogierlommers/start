@@ -4,13 +4,16 @@ FROM golang:1.26.2-alpine AS builder
 
 WORKDIR /src
 
+ARG VERSION
+
 # Cache module downloads first.
 COPY go.mod go.sum ./
 RUN go mod download
 
 # Build application.
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o /out/start ./cmd/start
+RUN APP_VERSION="${VERSION:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.appVersion=${APP_VERSION}" -o /out/start ./cmd/start
 
 FROM alpine:3.20
 
