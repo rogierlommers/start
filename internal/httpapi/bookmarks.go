@@ -70,6 +70,7 @@ func bookmarkToResponse(b service.Bookmark) bookmarkResponse {
 // @Summary List categories
 // @Tags bookmarks
 // @Produce json
+// @Security ApiBasicAuth
 // @Success 200 {array} categoryResponse
 // @Failure 500 {object} apiErrorResponse
 // @Router /api/categories [get]
@@ -93,6 +94,7 @@ func (h handlers) listCategories(c *gin.Context) {
 // @Tags bookmarks
 // @Accept json
 // @Produce json
+// @Security ApiBasicAuth
 // @Param request body createCategoryRequest true "Category payload"
 // @Success 201 {object} categoryResponse
 // @Failure 400 {object} apiErrorResponse
@@ -122,6 +124,7 @@ func (h handlers) createCategory(c *gin.Context) {
 // @Summary List bookmarks
 // @Tags bookmarks
 // @Produce json
+// @Security ApiBasicAuth
 // @Success 200 {array} bookmarkResponse
 // @Failure 500 {object} apiErrorResponse
 // @Router /api/bookmarks [get]
@@ -146,6 +149,7 @@ func (h handlers) listBookmarks(c *gin.Context) {
 // @Tags bookmarks
 // @Accept json
 // @Produce json
+// @Security ApiBasicAuth
 // @Param request body createBookmarkRequest true "Bookmark payload"
 // @Success 201 {object} bookmarkResponse
 // @Failure 400 {object} apiErrorResponse
@@ -184,6 +188,7 @@ func (h handlers) createBookmark(c *gin.Context) {
 // @Tags bookmarks
 // @Accept json
 // @Produce json
+// @Security ApiBasicAuth
 // @Param id path int true "Bookmark ID"
 // @Param request body updateBookmarkRequest true "Bookmark payload"
 // @Success 200 {object} bookmarkResponse
@@ -230,6 +235,7 @@ func (h handlers) updateBookmark(c *gin.Context) {
 // @Tags bookmarks
 // @Accept json
 // @Produce json
+// @Security ApiBasicAuth
 // @Param request body reorderBookmarksRequest true "Ordered bookmark IDs"
 // @Success 200 {object} reorderBookmarksResponse
 // @Failure 400 {object} apiErrorResponse
@@ -263,6 +269,7 @@ func (h handlers) reorderBookmarks(c *gin.Context) {
 // @Summary Delete a bookmark
 // @Tags bookmarks
 // @Produce json
+// @Security ApiBasicAuth
 // @Param id path int true "Bookmark ID"
 // @Success 204
 // @Failure 400 {object} apiErrorResponse
@@ -292,6 +299,7 @@ func (h handlers) deleteBookmark(c *gin.Context) {
 // @Tags bookmarks
 // @Accept json
 // @Produce json
+// @Security ApiBasicAuth
 // @Param id path int true "Bookmark ID"
 // @Param body body toggleBookmarkHiddenRequest true "Hidden status"
 // @Success 200 {object} bookmarkResponse

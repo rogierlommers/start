@@ -18,6 +18,13 @@ GUI authentication environment variables:
 - `GUI_USERNAME`
 - `GUI_PASSWORD`
 
+API basic auth environment variables (for `curl`/non-browser API access):
+
+- `API_USERNAME`
+- `API_PASSWORD`
+
+If `API_USERNAME` and `API_PASSWORD` are set, protected API routes also accept HTTP Basic auth.
+
 ## AI Skill
 
 This repository includes a project-specific AI maintenance skill in [.github/copilot-instructions.md](.github/copilot-instructions.md).

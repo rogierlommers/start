@@ -27,6 +27,8 @@ type GUIAuth struct {
 	enabled  bool
 	username string
 	password string
+	apiUser  string
+	apiPass  string
 	secret   []byte
 }
 
@@ -48,6 +50,8 @@ func NewGUIAuth(cfg config.Config) (*GUIAuth, error) {
 		enabled:  true,
 		username: username,
 		password: password,
+		apiUser:  strings.TrimSpace(cfg.APIUsername),
+		apiPass:  cfg.APIPassword,
 		secret:   secret,
 	}, nil
 }
@@ -115,12 +119,20 @@ func (a *GUIAuth) RequireAuth() gin.HandlerFunc {
 			return
 		}
 
+		if a.isAPIBasicAuthorized(c.Request) {
+			c.Next()
+			return
+		}
+
 		if expectsHTML(c.Request) {
 			c.Redirect(http.StatusSeeOther, a.LoginURL(c.Request.URL.RequestURI()))
 			c.Abort()
 			return
 		}
 
+		if expectsAPIAuth(c.Request) {
+			c.Header("WWW-Authenticate", `Basic realm="start-api", charset="UTF-8"`)
+		}
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
 	}
 }
@@ -157,6 +169,28 @@ func NormalizeNextPath(raw string) string {
 func expectsHTML(r *http.Request) bool {
 	accept := strings.ToLower(r.Header.Get("Accept"))
 	return strings.Contains(accept, "text/html")
+}
+
+func expectsAPIAuth(r *http.Request) bool {
+	return strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/openapi.yaml"
+}
+
+func (a *GUIAuth) isAPIBasicAuthorized(r *http.Request) bool {
+	if !a.Enabled() || !expectsAPIAuth(r) {
+		return false
+	}
+
+	if strings.TrimSpace(a.apiUser) == "" || a.apiPass == "" {
+		return false
+	}
+
+	username, password, ok := r.BasicAuth()
+	if !ok {
+		return false
+	}
+
+	return hmac.Equal([]byte(strings.TrimSpace(username)), []byte(a.apiUser)) &&
+		hmac.Equal([]byte(password), []byte(a.apiPass))
 }
 
 func (a *GUIAuth) sessionToken() string {

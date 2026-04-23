@@ -158,7 +158,9 @@ definitions:
     type: object
 info:
   contact: {}
-  description: API documentation generated from handler annotations.
+  description: |-
+    API documentation generated from handler annotations.
+    Protected API routes accept HTTP Basic auth with API_USERNAME and API_PASSWORD.
   title: start API
   version: 0.1.0
 paths:
@@ -177,6 +179,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
       summary: List bookmarks
       tags:
       - bookmarks
@@ -209,6 +213,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
       summary: Create a bookmark
       tags:
       - bookmarks
@@ -233,6 +239,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
       summary: Delete a bookmark
       tags:
       - bookmarks
@@ -270,6 +278,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
       summary: Update a bookmark
       tags:
       - bookmarks
@@ -308,6 +318,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
       summary: Toggle bookmark hidden status
       tags:
       - bookmarks
@@ -341,6 +353,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
       summary: Reorder bookmarks
       tags:
       - bookmarks
@@ -359,6 +373,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
       summary: List categories
       tags:
       - bookmarks
@@ -387,6 +403,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
       summary: Create a category
       tags:
       - bookmarks
@@ -427,6 +445,8 @@ paths:
           description: Service Unavailable
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
       summary: Send email message with optional attachments
       tags:
       - mail
@@ -479,6 +499,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
       summary: List reading-list items
       tags:
       - reading-list
@@ -507,6 +529,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
       summary: Add reading-list item
       tags:
       - reading-list
@@ -541,6 +565,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
       summary: List uploaded storage files
       tags:
       - storage
@@ -571,6 +597,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
       summary: Download a storage file
       tags:
       - storage
@@ -607,6 +635,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
       summary: Upload a file to server storage
       tags:
       - storage
@@ -639,7 +669,12 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
       summary: Upload multiple files to server storage
       tags:
       - storage
+securityDefinitions:
+  ApiBasicAuth:
+    type: basic
 swagger: "2.0"

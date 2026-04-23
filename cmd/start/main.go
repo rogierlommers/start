@@ -1,6 +1,8 @@
 // @title start API
 // @version 0.1.0
 // @description API documentation generated from handler annotations.
+// @description Protected API routes accept HTTP Basic auth with API_USERNAME and API_PASSWORD.
+// @securityDefinitions.basic ApiBasicAuth
 // @BasePath /
 package main
 

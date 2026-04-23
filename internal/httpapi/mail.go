@@ -30,6 +30,7 @@ type sendMailResponse struct {
 // @Tags mail
 // @Accept mpfd
 // @Produce json
+// @Security ApiBasicAuth
 // @Param body formData string true "Email body"
 // @Param subject formData string false "Email subject"
 // @Param to formData string false "Explicit recipient email address"

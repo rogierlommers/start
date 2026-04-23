@@ -49,6 +49,7 @@ type uploadStorageFileResult struct {
 // @Tags storage
 // @Accept mpfd
 // @Produce json
+// @Security ApiBasicAuth
 // @Param file formData file true "File to upload"
 // @Success 201 {object} uploadStorageFileResponse
 // @Failure 400 {object} apiErrorResponse
@@ -102,6 +103,7 @@ func (h handlers) uploadStorageFile(c *gin.Context) {
 // @Tags storage
 // @Accept mpfd
 // @Produce json
+// @Security ApiBasicAuth
 // @Param files formData file true "Files to upload (repeat field)"
 // @Success 201 {object} uploadStorageFilesResponse
 // @Success 207 {object} uploadStorageFilesResponse
@@ -192,6 +194,7 @@ func (h handlers) uploadStorageFiles(c *gin.Context) {
 // @Summary List uploaded storage files
 // @Tags storage
 // @Produce json
+// @Security ApiBasicAuth
 // @Success 200 {array} storageFileResponse
 // @Failure 500 {object} apiErrorResponse
 // @Router /api/storage/files [get]
@@ -220,6 +223,7 @@ func (h handlers) listStorageFiles(c *gin.Context) {
 // @Summary Download a storage file
 // @Tags storage
 // @Produce application/octet-stream
+// @Security ApiBasicAuth
 // @Param filename path string true "Stored filename"
 // @Success 200 {file} file
 // @Failure 400 {object} apiErrorResponse

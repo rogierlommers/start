@@ -64,6 +64,7 @@ func readingListItemToResponse(item service.ReadingListItem) readingListItemResp
 // @Tags reading-list
 // @Accept json
 // @Produce json
+// @Security ApiBasicAuth
 // @Param request body addReadingListItemRequest true "Reading-list payload"
 // @Success 201 {object} readingListItemResponse
 // @Failure 400 {object} apiErrorResponse
@@ -145,6 +146,7 @@ func (h handlers) addReadingListItemFromBookmarklet(c *gin.Context) {
 // @Summary List reading-list items
 // @Tags reading-list
 // @Produce json
+// @Security ApiBasicAuth
 // @Success 200 {array} readingListItemResponse
 // @Failure 500 {object} apiErrorResponse
 // @Router /api/reading-list/items [get]
