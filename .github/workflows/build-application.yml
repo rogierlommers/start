@@ -92,7 +92,7 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Run docker-compose commands
-        run: ssh services 'cd /srv/local && docker compose kill home && docker system prune --all --force && docker compose up home -d'
+        run: ssh services 'cd /srv/local && docker compose kill start && docker system prune --all --force && docker compose up start -d'
 
       - name: Run tailscale logout
         run: sudo tailscale logout
