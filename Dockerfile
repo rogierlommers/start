@@ -6,6 +6,9 @@ WORKDIR /src
 
 ARG VERSION
 
+# Install tzdata for timezone support.
+RUN apk add --no-cache tzdata
+
 # Cache module downloads first.
 COPY go.mod go.sum ./
 RUN go mod download
@@ -13,6 +16,7 @@ RUN go mod download
 # Build application.
 COPY . .
 RUN APP_BUILD_TIME="$(TZ=Europe/Amsterdam date +%Y-%m-%d\ %H:%M:%S\ %Z)" && \
+    echo "DEBUG: APP_BUILD_TIME=${APP_BUILD_TIME}" && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X 'main.appBuildTime=${APP_BUILD_TIME}'" -o /out/start ./cmd/start
 
 FROM alpine:3.20
