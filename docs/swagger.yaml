@@ -82,6 +82,11 @@ definitions:
     required:
     - name
     type: object
+  httpapi.healthResponse:
+    properties:
+      status:
+        type: string
+    type: object
   httpapi.readingListItemResponse:
     properties:
       created_at:
@@ -468,6 +473,18 @@ paths:
       summary: Create a category
       tags:
       - bookmarks
+  /api/health:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.healthResponse'
+      summary: Health check
+      tags:
+      - health
   /api/mail/send:
     post:
       consumes:

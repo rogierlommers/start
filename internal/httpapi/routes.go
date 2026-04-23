@@ -20,6 +20,7 @@ type apiErrorResponse struct {
 func RegisterPublic(router gin.IRouter, svc *service.Service, cfg config.Config) {
 	h := handlers{svc: svc, cfg: cfg}
 
+	router.GET("/api/health", h.health)
 	router.GET("/api/reading-list/bookmarklet-input", h.addReadingListItemFromBookmarklet)
 	router.GET("/api/reading-list/rss", h.getReadingListRSS)
 }

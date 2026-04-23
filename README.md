@@ -5,7 +5,7 @@ A go backend for a home dashboard: serves HTML and APIs for login, bookmarks and
 ## GUI Login
 
 When `GUI_USERNAME` and `GUI_PASSWORD` are configured, the HTML dashboard, `/docs`, and the JSON API require a GUI login.
-The existing reading-list RSS feed at `/api/reading-list/rss` and bookmarklet input endpoint at `/api/reading-list/bookmarklet-input` remain public.
+The health check endpoint at `/api/health`, reading-list RSS feed at `/api/reading-list/rss`, and bookmarklet input endpoint at `/api/reading-list/bookmarklet-input` remain public.
 
 Login routes:
 
