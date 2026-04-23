@@ -13,12 +13,13 @@ import (
 )
 
 //go:embed web/index.html
-var indexHTML []byte
+var indexHTML string
 
 //go:embed web/login.html
 var loginHTML string
 
 var loginPageTemplate = template.Must(template.New("login").Parse(loginHTML))
+var homePageTemplate = template.Must(template.New("index").Parse(indexHTML))
 
 type loginPageData struct {
 	Error    string
@@ -27,8 +28,13 @@ type loginPageData struct {
 }
 
 type handlers struct {
-	svc  *service.Service
-	auth *httpmiddleware.GUIAuth
+	svc        *service.Service
+	auth       *httpmiddleware.GUIAuth
+	appVersion string
+}
+
+type homePageData struct {
+	AppVersion string
 }
 
 // RegisterPublic registers public HTML routes.
@@ -41,14 +47,20 @@ func RegisterPublic(router gin.IRouter, auth *httpmiddleware.GUIAuth) {
 }
 
 // Register registers HTML routes.
-func Register(router gin.IRouter, svc *service.Service) {
-	h := handlers{svc: svc}
+func Register(router gin.IRouter, svc *service.Service, appVersion string) {
+	h := handlers{svc: svc, appVersion: appVersion}
 
 	router.GET("/", h.appHome)
 }
 
 func (h handlers) appHome(c *gin.Context) {
-	c.Data(http.StatusOK, "text/html; charset=utf-8", indexHTML)
+	var buf bytes.Buffer
+	if err := homePageTemplate.Execute(&buf, homePageData{AppVersion: h.appVersion}); err != nil {
+		c.String(http.StatusInternalServerError, "failed to render home page")
+		return
+	}
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", buf.Bytes())
 }
 
 func (h handlers) loginForm(c *gin.Context) {

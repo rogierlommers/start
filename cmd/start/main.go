@@ -28,7 +28,7 @@ func main() {
 	}
 
 	// get a configured HTTP server instance
-	ctx, err := server.NewHTTPServer(cfg)
+	ctx, err := server.NewHTTPServer(cfg, appVersion)
 	if err != nil {
 		logrus.Fatalf("failed to initialize HTTP server: %v", err)
 	}

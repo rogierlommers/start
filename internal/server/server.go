@@ -22,7 +22,7 @@ type ServerContext struct {
 }
 
 // NewHTTPServer builds an HTTP server configured with the project's Gin router.
-func NewHTTPServer(cfg config.Config) (*ServerContext, error) {
+func NewHTTPServer(cfg config.Config, appVersion string) (*ServerContext, error) {
 
 	// set Gin to release mode for production use
 	gin.SetMode(gin.ReleaseMode)
@@ -80,7 +80,7 @@ func NewHTTPServer(cfg config.Config) (*ServerContext, error) {
 
 	// register API and web handlers
 	httpapi.Register(protected, svc, cfg)
-	httpweb.Register(protected, svc)
+	httpweb.Register(protected, svc, appVersion)
 
 	return &ServerContext{
 		Server: &http.Server{
