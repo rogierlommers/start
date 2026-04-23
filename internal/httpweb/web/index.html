@@ -505,7 +505,9 @@
 
       async function loadCategories() {
         try {
-          categoriesCache = await apiFetch('/api/categories') || []
+          categoriesCache = (await apiFetch('/api/categories') || [])
+            .slice()
+            .sort((a, b) => Number(a.id) - Number(b.id))
           const sel = document.getElementById('bookmark-category')
           sel.innerHTML = '<option value="">Select category…</option>' +
             categoriesCache.map(c => `<option value="${c.id}">${escHtml(c.name)}</option>`).join('')
@@ -591,26 +593,42 @@
           return
         }
 
-        const byCategory = {}
+        const categoriesByID = new Map(categoriesCache.map(c => [c.id, c]))
+        const byCategoryID = new Map()
+        const uncategorized = []
+
         for (const bm of filtered) {
-          const cat = categoriesCache.find(c => c.id === bm.category_id)
-          const catName = cat ? cat.name : 'Uncategorized'
-          if (!byCategory[catName]) byCategory[catName] = []
-          byCategory[catName].push(bm)
+          if (!categoriesByID.has(bm.category_id)) {
+            uncategorized.push(bm)
+            continue
+          }
+
+          if (!byCategoryID.has(bm.category_id)) byCategoryID.set(bm.category_id, [])
+          byCategoryID.get(bm.category_id).push(bm)
         }
 
-        for (const [cat, items] of Object.entries(byCategory)) {
+        const appendCategorySection = (catName, items) => {
           const section = document.createElement('div')
           section.className = 'rounded-xl border border-gray-100 bg-gray-50/60 p-3'
           const label = document.createElement('p')
           label.className = 'text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1'
-          label.textContent = cat
+          label.textContent = catName
           const ul = document.createElement('ul')
           ul.className = 'divide-y divide-gray-100'
           items.forEach(bm => ul.appendChild(bmRow(bm)))
           section.appendChild(label)
           section.appendChild(ul)
           container.appendChild(section)
+        }
+
+        for (const cat of categoriesCache) {
+          const items = byCategoryID.get(cat.id)
+          if (!items || items.length === 0) continue
+          appendCategorySection(cat.name, items)
+        }
+
+        if (uncategorized.length > 0) {
+          appendCategorySection('Uncategorized', uncategorized)
         }
       }
 
