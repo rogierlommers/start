@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -34,6 +35,12 @@ func (m *MemoryStore) CreateCategory(_ context.Context, c Category) (Category, e
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	for _, existing := range m.categories {
+		if strings.EqualFold(existing.Name, c.Name) {
+			return Category{}, fmt.Errorf("category %q: %w", c.Name, ErrCategoryAlreadyExists)
+		}
+	}
+
 	c.ID = m.nextCatID
 	m.nextCatID++
 	m.categories[c.ID] = c
@@ -61,6 +68,12 @@ func (m *MemoryStore) CreateBookmark(_ context.Context, b Bookmark) (Bookmark, e
 		return Bookmark{}, fmt.Errorf("category %d: %w", b.CategoryID, ErrCategoryNotFound)
 	}
 
+	for _, existing := range m.bookmarks {
+		if strings.EqualFold(existing.URL, b.URL) {
+			return Bookmark{}, fmt.Errorf("bookmark URL %q: %w", b.URL, ErrBookmarkAlreadyExists)
+		}
+	}
+
 	b.ID = m.nextBmkID
 	b.Position = m.nextBookmarkPosition()
 	b.CreatedAt = time.Now().UTC()
@@ -81,6 +94,15 @@ func (m *MemoryStore) UpdateBookmark(_ context.Context, b Bookmark) (Bookmark, e
 
 	if _, ok := m.categories[b.CategoryID]; !ok {
 		return Bookmark{}, fmt.Errorf("category %d: %w", b.CategoryID, ErrCategoryNotFound)
+	}
+
+	for id, other := range m.bookmarks {
+		if id == b.ID {
+			continue
+		}
+		if strings.EqualFold(other.URL, b.URL) {
+			return Bookmark{}, fmt.Errorf("bookmark URL %q: %w", b.URL, ErrBookmarkAlreadyExists)
+		}
 	}
 
 	existing.URL = b.URL

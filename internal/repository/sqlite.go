@@ -153,6 +153,9 @@ func appliedMigrationVersions(ctx context.Context, tx *sql.Tx) (map[int]struct{}
 func (s *SQLiteStore) CreateCategory(ctx context.Context, c Category) (Category, error) {
 	res, err := s.db.ExecContext(ctx, `INSERT INTO categories(name) VALUES(?)`, strings.TrimSpace(c.Name))
 	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") && strings.Contains(strings.ToLower(err.Error()), "categories.name") {
+			return Category{}, fmt.Errorf("category %q: %w", strings.TrimSpace(c.Name), ErrCategoryAlreadyExists)
+		}
 		return Category{}, fmt.Errorf("insert category: %w", err)
 	}
 
@@ -216,6 +219,9 @@ func (s *SQLiteStore) CreateBookmark(ctx context.Context, b Bookmark) (Bookmark,
 		createdAt.Format(time.RFC3339Nano),
 	)
 	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") && strings.Contains(strings.ToLower(err.Error()), "bookmarks.url") {
+			return Bookmark{}, fmt.Errorf("bookmark URL %q: %w", b.URL, ErrBookmarkAlreadyExists)
+		}
 		return Bookmark{}, fmt.Errorf("insert bookmark: %w", err)
 	}
 
@@ -261,6 +267,9 @@ func (s *SQLiteStore) UpdateBookmark(ctx context.Context, b Bookmark) (Bookmark,
 		b.ID,
 	)
 	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") && strings.Contains(strings.ToLower(err.Error()), "bookmarks.url") {
+			return Bookmark{}, fmt.Errorf("bookmark URL %q: %w", b.URL, ErrBookmarkAlreadyExists)
+		}
 		return Bookmark{}, fmt.Errorf("update bookmark: %w", err)
 	}
 

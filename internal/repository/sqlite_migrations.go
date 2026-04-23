@@ -30,6 +30,7 @@ var sqliteMigrations = []sqliteMigration{
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				name TEXT NOT NULL
 			)`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_name_unique_nocase ON categories(name COLLATE NOCASE)`,
 			`CREATE TABLE IF NOT EXISTS bookmarks (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				url TEXT NOT NULL,
@@ -40,6 +41,7 @@ var sqliteMigrations = []sqliteMigration{
 				created_at TEXT NOT NULL,
 				FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
 			)`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_bookmarks_url_unique_nocase ON bookmarks(url COLLATE NOCASE)`,
 			`CREATE INDEX IF NOT EXISTS idx_bookmarks_position ON bookmarks(position, id)`,
 			`CREATE TABLE IF NOT EXISTS reading_list_items (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,

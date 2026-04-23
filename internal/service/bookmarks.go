@@ -12,9 +12,11 @@ import (
 )
 
 var ErrBookmarkNotFound = errors.New("bookmark not found")
+var ErrBookmarkAlreadyExists = errors.New("bookmark already exists")
 var ErrInvalidBookmarkInput = errors.New("invalid bookmark input")
 var ErrCategoryNotFound = errors.New("category not found")
 var ErrInvalidCategoryInput = errors.New("invalid category input")
+var ErrCategoryAlreadyExists = errors.New("category already exists")
 
 type Category struct {
 	ID   int64
@@ -56,6 +58,9 @@ func (s *Service) CreateCategory(ctx context.Context, in CreateCategoryInput) (C
 
 	c, err := s.store.CreateCategory(ctx, repository.Category{Name: name})
 	if err != nil {
+		if errors.Is(err, repository.ErrCategoryAlreadyExists) {
+			return Category{}, fmt.Errorf("%w: category %q already exists", ErrCategoryAlreadyExists, name)
+		}
 		return Category{}, fmt.Errorf("create category: %w", err)
 	}
 
@@ -102,6 +107,9 @@ func (s *Service) CreateBookmark(ctx context.Context, in CreateBookmarkInput) (B
 		if errors.Is(err, repository.ErrCategoryNotFound) {
 			return Bookmark{}, fmt.Errorf("%w: category %d does not exist", ErrCategoryNotFound, in.CategoryID)
 		}
+		if errors.Is(err, repository.ErrBookmarkAlreadyExists) {
+			return Bookmark{}, fmt.Errorf("%w: url %q already exists", ErrBookmarkAlreadyExists, rawURL)
+		}
 		return Bookmark{}, fmt.Errorf("create bookmark: %w", err)
 	}
 
@@ -141,6 +149,8 @@ func (s *Service) UpdateBookmark(ctx context.Context, in UpdateBookmarkInput) (B
 			return Bookmark{}, fmt.Errorf("%w: bookmark %d does not exist", ErrBookmarkNotFound, in.ID)
 		case errors.Is(err, repository.ErrCategoryNotFound):
 			return Bookmark{}, fmt.Errorf("%w: category %d does not exist", ErrCategoryNotFound, in.CategoryID)
+		case errors.Is(err, repository.ErrBookmarkAlreadyExists):
+			return Bookmark{}, fmt.Errorf("%w: url %q already exists", ErrBookmarkAlreadyExists, rawURL)
 		default:
 			return Bookmark{}, fmt.Errorf("update bookmark: %w", err)
 		}

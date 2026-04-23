@@ -98,6 +98,7 @@ func (h handlers) listCategories(c *gin.Context) {
 // @Param request body createCategoryRequest true "Category payload"
 // @Success 201 {object} categoryResponse
 // @Failure 400 {object} apiErrorResponse
+// @Failure 409 {object} apiErrorResponse
 // @Failure 500 {object} apiErrorResponse
 // @Router /api/categories [post]
 func (h handlers) createCategory(c *gin.Context) {
@@ -111,6 +112,10 @@ func (h handlers) createCategory(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidCategoryInput) {
 			c.JSON(http.StatusBadRequest, apiErrorResponse{Error: err.Error()})
+			return
+		}
+		if errors.Is(err, service.ErrCategoryAlreadyExists) {
+			c.JSON(http.StatusConflict, apiErrorResponse{Error: err.Error()})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, apiErrorResponse{Error: "failed to create category"})
@@ -153,6 +158,7 @@ func (h handlers) listBookmarks(c *gin.Context) {
 // @Param request body createBookmarkRequest true "Bookmark payload"
 // @Success 201 {object} bookmarkResponse
 // @Failure 400 {object} apiErrorResponse
+// @Failure 409 {object} apiErrorResponse
 // @Failure 422 {object} apiErrorResponse
 // @Failure 500 {object} apiErrorResponse
 // @Router /api/bookmarks [post]
@@ -172,6 +178,8 @@ func (h handlers) createBookmark(c *gin.Context) {
 		switch {
 		case errors.Is(err, service.ErrInvalidBookmarkInput):
 			c.JSON(http.StatusBadRequest, apiErrorResponse{Error: err.Error()})
+		case errors.Is(err, service.ErrBookmarkAlreadyExists):
+			c.JSON(http.StatusConflict, apiErrorResponse{Error: err.Error()})
 		case errors.Is(err, service.ErrCategoryNotFound):
 			c.JSON(http.StatusUnprocessableEntity, apiErrorResponse{Error: err.Error()})
 		default:
@@ -193,6 +201,7 @@ func (h handlers) createBookmark(c *gin.Context) {
 // @Param request body updateBookmarkRequest true "Bookmark payload"
 // @Success 200 {object} bookmarkResponse
 // @Failure 400 {object} apiErrorResponse
+// @Failure 409 {object} apiErrorResponse
 // @Failure 422 {object} apiErrorResponse
 // @Failure 500 {object} apiErrorResponse
 // @Router /api/bookmarks/{id} [patch]
@@ -219,6 +228,8 @@ func (h handlers) updateBookmark(c *gin.Context) {
 		switch {
 		case errors.Is(err, service.ErrInvalidBookmarkInput):
 			c.JSON(http.StatusBadRequest, apiErrorResponse{Error: err.Error()})
+		case errors.Is(err, service.ErrBookmarkAlreadyExists):
+			c.JSON(http.StatusConflict, apiErrorResponse{Error: err.Error()})
 		case errors.Is(err, service.ErrBookmarkNotFound), errors.Is(err, service.ErrCategoryNotFound):
 			c.JSON(http.StatusUnprocessableEntity, apiErrorResponse{Error: err.Error()})
 		default:

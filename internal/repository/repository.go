@@ -9,8 +9,14 @@ import (
 // ErrCategoryNotFound is returned when a referenced category does not exist.
 var ErrCategoryNotFound = errors.New("category not found")
 
+// ErrCategoryAlreadyExists is returned when creating a duplicate category name.
+var ErrCategoryAlreadyExists = errors.New("category already exists")
+
 // ErrBookmarkNotFound is returned when a referenced bookmark does not exist.
 var ErrBookmarkNotFound = errors.New("bookmark not found")
+
+// ErrBookmarkAlreadyExists is returned when creating/updating a duplicate bookmark URL.
+var ErrBookmarkAlreadyExists = errors.New("bookmark already exists")
 
 // ErrInvalidBookmarkOrder is returned when a reorder payload is invalid.
 var ErrInvalidBookmarkOrder = errors.New("invalid bookmark order")

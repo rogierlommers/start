@@ -205,6 +205,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -268,6 +272,10 @@ paths:
             $ref: '#/definitions/httpapi.bookmarkResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "409":
+          description: Conflict
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
         "422":
@@ -397,6 +405,10 @@ paths:
             $ref: '#/definitions/httpapi.categoryResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "409":
+          description: Conflict
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
         "500":
