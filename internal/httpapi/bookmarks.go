@@ -1,9 +1,12 @@
 package httpapi
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"start/internal/service"
@@ -52,6 +55,22 @@ type reorderBookmarksResponse struct {
 
 type toggleBookmarkHiddenRequest struct {
 	Hidden bool `json:"hidden"`
+}
+
+type alfredCacheResponse struct {
+	Seconds int `json:"seconds"`
+}
+
+type alfredBookmarkItemResponse struct {
+	UID   string `json:"uid"`
+	ID    int64  `json:"id"`
+	Title string `json:"title"`
+	Arg   string `json:"arg"`
+}
+
+type alfredBookmarksResponse struct {
+	Cache alfredCacheResponse          `json:"cache"`
+	Items []alfredBookmarkItemResponse `json:"items"`
 }
 
 func bookmarkToResponse(b service.Bookmark) bookmarkResponse {
@@ -147,6 +166,45 @@ func (h handlers) listBookmarks(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, resp)
+}
+
+// listBookmarksAlfred godoc
+// @Summary List bookmarks in Alfred workflow format
+// @Tags bookmarks
+// @Produce json
+// @Security ApiBasicAuth
+// @Param include_hidden query bool false "Include hidden bookmarks"
+// @Success 200 {object} alfredBookmarksResponse
+// @Failure 500 {object} apiErrorResponse
+// @Router /api/bookmarks/alfred [get]
+func (h handlers) listBookmarksAlfred(c *gin.Context) {
+	includeHidden := c.Query("include_hidden") == "true"
+	bookmarks, err := h.svc.ListBookmarks(c.Request.Context(), includeHidden)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, apiErrorResponse{Error: "failed to list bookmarks"})
+		return
+	}
+
+	items := make([]alfredBookmarkItemResponse, 0, len(bookmarks))
+	for _, b := range bookmarks {
+		title := strings.TrimSpace(b.Title)
+		if title == "" {
+			title = b.URL
+		}
+
+		sum := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(b.URL))))
+		items = append(items, alfredBookmarkItemResponse{
+			UID:   hex.EncodeToString(sum[:]),
+			ID:    b.ID,
+			Title: title,
+			Arg:   b.URL,
+		})
+	}
+
+	c.JSON(http.StatusOK, alfredBookmarksResponse{
+		Cache: alfredCacheResponse{Seconds: 3600},
+		Items: items,
+	})
 }
 
 // createBookmark godoc

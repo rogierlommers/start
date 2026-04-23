@@ -80,6 +80,16 @@ Storage environment variables:
 - `STORAGE_MAX_UPLOAD_MB` (optional, defaults to `100`)
 - `STORAGE_CLEANUP_DAYS` (optional, defaults to `30`; set to `0` to disable scheduled cleanup)
 
+## Bookmarks API
+
+- `GET /api/bookmarks`
+- `GET /api/bookmarks/alfred` (Alfred workflow format with `cache.seconds` and `items[]` containing `uid`, `id`, `title`, `arg`; supports `?include_hidden=true`)
+- `POST /api/bookmarks`
+- `PATCH /api/bookmarks/{id}`
+- `PATCH /api/bookmarks/{id}/hidden`
+- `PATCH /api/bookmarks/reorder`
+- `DELETE /api/bookmarks/{id}`
+
 ## Database
 
 Persistence is backed by SQLite.

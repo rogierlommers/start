@@ -9,6 +9,31 @@ definitions:
     required:
     - url
     type: object
+  httpapi.alfredBookmarkItemResponse:
+    properties:
+      arg:
+        type: string
+      id:
+        type: integer
+      title:
+        type: string
+      uid:
+        type: string
+    type: object
+  httpapi.alfredBookmarksResponse:
+    properties:
+      cache:
+        $ref: '#/definitions/httpapi.alfredCacheResponse'
+      items:
+        items:
+          $ref: '#/definitions/httpapi.alfredBookmarkItemResponse'
+        type: array
+    type: object
+  httpapi.alfredCacheResponse:
+    properties:
+      seconds:
+        type: integer
+    type: object
   httpapi.apiErrorResponse:
     properties:
       error:
@@ -329,6 +354,29 @@ paths:
       security:
       - ApiBasicAuth: []
       summary: Toggle bookmark hidden status
+      tags:
+      - bookmarks
+  /api/bookmarks/alfred:
+    get:
+      parameters:
+      - description: Include hidden bookmarks
+        in: query
+        name: include_hidden
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.alfredBookmarksResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: List bookmarks in Alfred workflow format
       tags:
       - bookmarks
   /api/bookmarks/reorder:
