@@ -60,9 +60,10 @@ func NewHTTPServer(cfg config.Config, appBuildTime string) (*ServerContext, erro
 	// service layer
 	svc := service.New(store, sender, cfg)
 
-	// start background workers for mail and storage cleanup
+	// start background workers for mail, storage cleanup, and reading-list cleanup
 	svc.StartMailWorker()
 	svc.StartStorageCleanupWorker()
+	svc.StartReadingListCleanupWorker()
 
 	httpweb.RegisterPublic(router, guiAuth)
 	httpapi.RegisterPublic(router, svc, cfg)

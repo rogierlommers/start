@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"start/internal/repository"
+
+	"github.com/sirupsen/logrus"
 )
 
 var ErrInvalidReadingListInput = errors.New("invalid reading list input")
@@ -70,4 +72,59 @@ func repoReadingListItemToService(item repository.ReadingListItem) ReadingListIt
 		Title:     item.Title,
 		CreatedAt: item.CreatedAt,
 	}
+}
+
+// StartReadingListCleanupWorker starts a daily cleanup loop that deletes reading-list items older than configured retention days.
+// READING_LIST_CLEANUP_DAYS=0 disables cleanup.
+func (s *Service) StartReadingListCleanupWorker() {
+	retentionDays := s.cfg.ReadingListCleanupDays
+	if retentionDays <= 0 {
+		logrus.Info("reading-list cleanup disabled")
+		return
+	}
+
+	go func() {
+		// Run once at startup so stale items are cleaned without waiting for the first tick.
+		if deleted, err := s.cleanupReadingListOlderThan(context.Background(), retentionDays); err != nil {
+			logrus.Errorf("reading-list cleanup failed: %v", err)
+		} else if deleted > 0 {
+			logrus.Infof("reading-list cleanup removed %d item(s)", deleted)
+		}
+
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				deleted, err := s.cleanupReadingListOlderThan(context.Background(), retentionDays)
+				if err != nil {
+					logrus.Errorf("reading-list cleanup failed: %v", err)
+					continue
+				}
+				if deleted > 0 {
+					logrus.Infof("reading-list cleanup removed %d item(s)", deleted)
+				}
+			case <-s.done:
+				return
+			}
+		}
+	}()
+}
+
+func (s *Service) cleanupReadingListOlderThan(ctx context.Context, days int) (int, error) {
+	if ctx.Err() != nil {
+		return 0, ctx.Err()
+	}
+	if days <= 0 {
+		return 0, nil
+	}
+
+	cutoff := time.Now().UTC().AddDate(0, 0, -days)
+	deleted, err := s.store.DeleteReadingListItemsOlderThan(ctx, cutoff)
+	if err != nil {
+		return 0, fmt.Errorf("cleanup reading list items older than %d days: %w", days, err)
+	}
+
+	return deleted, nil
 }

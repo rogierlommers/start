@@ -216,3 +216,18 @@ func (m *MemoryStore) ListReadingListItems(_ context.Context) ([]ReadingListItem
 
 	return out, nil
 }
+
+func (m *MemoryStore) DeleteReadingListItemsOlderThan(_ context.Context, before time.Time) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	deleted := 0
+	for id, item := range m.reading {
+		if item.CreatedAt.Before(before) {
+			delete(m.reading, id)
+			deleted++
+		}
+	}
+
+	return deleted, nil
+}

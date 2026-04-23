@@ -17,26 +17,27 @@ const (
 
 // Config contains runtime settings sourced from environment variables.
 type Config struct {
-	HostPort           string
-	ShutdownTimeout    time.Duration
-	ReadHeaderTimeout  time.Duration
-	EnableAccessLogs   bool
-	LogLevel           string
-	SQLitePath         string
-	StorageUploadDir   string
-	StorageMaxUploadMB int64
-	StorageCleanupDays int
-	SMTPHost           string
-	SMTPPort           int
-	SMTPUsername       string
-	SMTPPassword       string
-	SMTPFrom           string
-	MailerEmailPrivate string
-	MailerEmailWork    string
-	GUIUsername        string
-	GUIPassword        string
-	APIUsername        string
-	APIPassword        string
+	HostPort               string
+	ShutdownTimeout        time.Duration
+	ReadHeaderTimeout      time.Duration
+	EnableAccessLogs       bool
+	LogLevel               string
+	SQLitePath             string
+	StorageUploadDir       string
+	StorageMaxUploadMB     int64
+	StorageCleanupDays     int
+	ReadingListCleanupDays int
+	SMTPHost               string
+	SMTPPort               int
+	SMTPUsername           string
+	SMTPPassword           string
+	SMTPFrom               string
+	MailerEmailPrivate     string
+	MailerEmailWork        string
+	GUIUsername            string
+	GUIPassword            string
+	APIUsername            string
+	APIPassword            string
 }
 
 // Load reads runtime configuration from environment variables with defaults.
@@ -63,9 +64,10 @@ func Load() (Config, error) {
 		EnableAccessLogs: false, // default to false, can be enabled with env var
 
 		// storage settings
-		StorageUploadDir:   os.Getenv("STORAGE_UPLOAD_DIR"),
-		StorageMaxUploadMB: 100, // default max upload size of 100 MB
-		StorageCleanupDays: 30,
+		StorageUploadDir:       os.Getenv("STORAGE_UPLOAD_DIR"),
+		StorageMaxUploadMB:     100, // default max upload size of 100 MB
+		StorageCleanupDays:     30,
+		ReadingListCleanupDays: 30,
 
 		// mailer settings
 		SMTPHost:           os.Getenv("MAILER_SMTP_HOST"),
@@ -107,6 +109,14 @@ func Load() (Config, error) {
 			return Config{}, fmt.Errorf("invalid STORAGE_CLEANUP_DAYS value %q", rawCleanupDays)
 		}
 		cfg.StorageCleanupDays = cleanupDays
+	}
+
+	if rawCleanupDays := os.Getenv("READING_LIST_CLEANUP_DAYS"); rawCleanupDays != "" {
+		cleanupDays, err := strconv.Atoi(rawCleanupDays)
+		if err != nil || cleanupDays < 0 {
+			return Config{}, fmt.Errorf("invalid READING_LIST_CLEANUP_DAYS value %q", rawCleanupDays)
+		}
+		cfg.ReadingListCleanupDays = cleanupDays
 	}
 
 	if raw := os.Getenv("ENABLE_ACCESS_LOGS"); raw != "" {

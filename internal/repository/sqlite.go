@@ -436,6 +436,23 @@ func (s *SQLiteStore) ListReadingListItems(ctx context.Context) ([]ReadingListIt
 	return out, nil
 }
 
+func (s *SQLiteStore) DeleteReadingListItemsOlderThan(ctx context.Context, before time.Time) (int, error) {
+	res, err := s.db.ExecContext(ctx,
+		`DELETE FROM reading_list_items WHERE created_at < ?`,
+		before.UTC().Format(time.RFC3339Nano),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("delete old reading list items: %w", err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("reading list cleanup rows affected: %w", err)
+	}
+
+	return int(rowsAffected), nil
+}
+
 func categoryExists(ctx context.Context, tx *sql.Tx, categoryID int64) (bool, error) {
 	var exists int
 	err := tx.QueryRowContext(ctx, `SELECT 1 FROM categories WHERE id = ? LIMIT 1`, categoryID).Scan(&exists)

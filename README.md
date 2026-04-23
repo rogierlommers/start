@@ -110,6 +110,10 @@ Reading-list endpoints:
 - `GET /api/reading-list/rss`
 - `GET /api/reading-list/bookmarklet-input?url={encodedUrl}&return_to={encodedUrl}`
 
+Reading-list cleanup environment variables:
+
+- `READING_LIST_CLEANUP_DAYS` (optional, defaults to `30`; set to `0` to disable scheduled cleanup)
+
 The bookmarklet endpoint adds the incoming `url` as a new reading-list item.
 If `return_to` is provided, it redirects back to that URL after saving.
 

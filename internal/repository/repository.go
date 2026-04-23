@@ -65,6 +65,7 @@ type ReadingListItem struct {
 type ReadingListStore interface {
 	CreateReadingListItem(ctx context.Context, item ReadingListItem) (ReadingListItem, error)
 	ListReadingListItems(ctx context.Context) ([]ReadingListItem, error)
+	DeleteReadingListItemsOlderThan(ctx context.Context, before time.Time) (int, error)
 }
 
 // Store defines persistence dependencies used by the service layer.
@@ -115,4 +116,8 @@ func (n *NoopStore) CreateReadingListItem(_ context.Context, item ReadingListIte
 
 func (n *NoopStore) ListReadingListItems(_ context.Context) ([]ReadingListItem, error) {
 	return []ReadingListItem{}, nil
+}
+
+func (n *NoopStore) DeleteReadingListItemsOlderThan(_ context.Context, _ time.Time) (int, error) {
+	return 0, nil
 }
