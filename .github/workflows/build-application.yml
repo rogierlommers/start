@@ -31,8 +31,14 @@ jobs:
           BUILD_TIME="$(TZ=Europe/Amsterdam date +%Y-%m-%d\ %H:%M:%S\ %Z)"
           go build -ldflags "-X 'main.appBuildTime=${BUILD_TIME}'" ./cmd/start
 
-      - name: Test
-        run: go test -v ./...
+      - name: Test with coverage
+        run: go test ./... -coverprofile=coverage.out
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.out
+          flags: unittests
 
   build-docker-image:
     runs-on: ubuntu-latest
