@@ -16,6 +16,13 @@ type apiErrorResponse struct {
 	Error string `json:"error"`
 }
 
+// RegisterPublic registers public JSON API routes.
+func RegisterPublic(router gin.IRouter, svc *service.Service, cfg config.Config) {
+	h := handlers{svc: svc, cfg: cfg}
+
+	router.GET("/api/reading-list/rss", h.getReadingListRSS)
+}
+
 // Register registers JSON API routes.
 func Register(router gin.IRouter, svc *service.Service, cfg config.Config) {
 	h := handlers{svc: svc, cfg: cfg}
@@ -42,7 +49,6 @@ func Register(router gin.IRouter, svc *service.Service, cfg config.Config) {
 	api.POST("/reading-list/items", h.addReadingListItem)
 	api.GET("/reading-list/bookmarklet-input", h.addReadingListItemFromBookmarklet)
 	api.GET("/reading-list/items", h.listReadingListItems)
-	api.GET("/reading-list/rss", h.getReadingListRSS)
 }
 
 func (h handlers) openapiSpec(c *gin.Context) {

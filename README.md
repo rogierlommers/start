@@ -2,6 +2,22 @@
 
 A go backend for a home dashboard: serves HTML and APIs for login, bookmarks and storage/uploads with Gin + SQLite. It also sends quick notes by email (text/files) and includes a URL collector that scrapes titles and publishes a personal RSS feed.
 
+## GUI Login
+
+When `GUI_USERNAME` and `GUI_PASSWORD` are configured, the HTML dashboard, `/docs`, and the JSON API require a GUI login.
+The existing reading-list RSS feed at `/api/reading-list/rss` remains public.
+
+Login routes:
+
+- `GET /login`
+- `POST /login`
+- `POST /logout`
+
+GUI authentication environment variables:
+
+- `GUI_USERNAME`
+- `GUI_PASSWORD`
+
 ## AI Skill
 
 This repository includes a project-specific AI maintenance skill in [.github/copilot-instructions.md](.github/copilot-instructions.md).

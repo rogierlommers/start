@@ -62,12 +62,18 @@
     <!-- Header -->
     <header class="relative bg-transparent px-6 py-5">
 
-      <div class="flex items-center">
+      <div class="flex items-center justify-between gap-4">
         <div>
           <div class="flex items-center">
             <span class="text-2xl font-semibold tracking-[0.02em] text-gray-500/90 drop-shadow-[0_1px_0_rgba(255,255,255,0.6)]">start.lommers.org</span>
           </div>
         </div>
+        <form action="/logout" method="post">
+          <button type="submit"
+            class="inline-flex items-center rounded-xl border border-gray-200 bg-white/80 px-3 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:border-gray-300 hover:text-gray-900">
+            Log out
+          </button>
+        </form>
       </div>
     </header>
 
@@ -228,6 +234,10 @@
 
       async function apiFetch(path, opts = {}) {
         const res = await fetch(path, opts)
+        if (res.status === 401) {
+          window.location.href = `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`
+          throw new Error('Authentication required')
+        }
         if (!res.ok) {
           let errMsg = `HTTP ${res.status}`
           try {

@@ -39,6 +39,10 @@ func NewHTTPServer(cfg config.Config) (*ServerContext, error) {
 	}
 
 	httpmiddleware.RegisterGlobal(router)
+	guiAuth, err := httpmiddleware.NewGUIAuth(cfg)
+	if err != nil {
+		return nil, err
+	}
 
 	// persistency layer
 	store, err := repository.NewSQLiteStore(cfg.SQLitePath)
@@ -60,8 +64,14 @@ func NewHTTPServer(cfg config.Config) (*ServerContext, error) {
 	svc.StartMailWorker()
 	svc.StartStorageCleanupWorker()
 
+	httpweb.RegisterPublic(router, guiAuth)
+	httpapi.RegisterPublic(router, svc, cfg)
+
+	protected := router.Group("")
+	protected.Use(guiAuth.RequireAuth())
+
 	// API documentation endpoint
-	router.GET("/docs/*any", openapiui.WrapHandler(openapiui.Config{
+	protected.GET("/docs/*any", openapiui.WrapHandler(openapiui.Config{
 		SpecURL:      "/openapi.yaml",
 		SpecFilePath: "./docs/swagger.yaml",
 		Title:        "start API",
@@ -69,8 +79,8 @@ func NewHTTPServer(cfg config.Config) (*ServerContext, error) {
 	}))
 
 	// register API and web handlers
-	httpapi.Register(router, svc, cfg)
-	httpweb.Register(router, svc)
+	httpapi.Register(protected, svc, cfg)
+	httpweb.Register(protected, svc)
 
 	return &ServerContext{
 		Server: &http.Server{

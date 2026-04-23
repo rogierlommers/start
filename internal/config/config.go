@@ -33,6 +33,8 @@ type Config struct {
 	SMTPFrom           string
 	MailerEmailPrivate string
 	MailerEmailWork    string
+	GUIUsername        string
+	GUIPassword        string
 }
 
 // Load reads runtime configuration from environment variables with defaults.
@@ -52,6 +54,8 @@ func Load() (Config, error) {
 		HostPort:         os.Getenv("HTTP_BIND_ADDR"),
 		LogLevel:         os.Getenv("LOG_LEVEL"),
 		SQLitePath:       os.Getenv("SQLITE_PATH"),
+		GUIUsername:      os.Getenv("GUI_USERNAME"),
+		GUIPassword:      os.Getenv("GUI_PASSWORD"),
 		EnableAccessLogs: false, // default to false, can be enabled with env var
 
 		// storage settings
