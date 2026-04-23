@@ -12,8 +12,8 @@ RUN go mod download
 
 # Build application.
 COPY . .
-RUN APP_VERSION="${VERSION:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.appVersion=${APP_VERSION}" -o /out/start ./cmd/start
+RUN APP_BUILD_TIME="$(TZ=Europe/Amsterdam date +%Y-%m-%d\ %H:%M:%S\ %Z)" && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X 'main.appBuildTime=${APP_BUILD_TIME}'" -o /out/start ./cmd/start
 
 FROM alpine:3.20
 

@@ -10,9 +10,9 @@ func printBanner() {
 ╚════██║   ██║   ██╔══██║██╔══██╗   ██║   
 ███████║   ██║   ██║  ██║██║  ██║   ██║   
 ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   
-App version: %s
+Build time: %s
 `
 
-	b := fmt.Sprintf(banner, appVersion)
+	b := fmt.Sprintf(banner, appBuildTime)
 	fmt.Println(b)
 }

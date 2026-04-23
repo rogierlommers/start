@@ -27,7 +27,9 @@ jobs:
         run: go mod download
 
       - name: Build
-        run: go build -ldflags "-X main.appVersion=$(date -u +%Y-%m-%dT%H:%M:%SZ)" ./cmd/start
+        run: |
+          BUILD_TIME="$(TZ=Europe/Amsterdam date +%Y-%m-%d\ %H:%M:%S\ %Z)"
+          go build -ldflags "-X 'main.appBuildTime=${BUILD_TIME}'" ./cmd/start
 
       - name: Test
         run: go test -v ./...

@@ -28,13 +28,13 @@ type loginPageData struct {
 }
 
 type handlers struct {
-	svc        *service.Service
-	auth       *httpmiddleware.GUIAuth
-	appVersion string
+	svc          *service.Service
+	auth         *httpmiddleware.GUIAuth
+	appBuildTime string
 }
 
 type homePageData struct {
-	AppVersion string
+	AppBuildTime string
 }
 
 // RegisterPublic registers public HTML routes.
@@ -47,15 +47,15 @@ func RegisterPublic(router gin.IRouter, auth *httpmiddleware.GUIAuth) {
 }
 
 // Register registers HTML routes.
-func Register(router gin.IRouter, svc *service.Service, appVersion string) {
-	h := handlers{svc: svc, appVersion: appVersion}
+func Register(router gin.IRouter, svc *service.Service, appBuildTime string) {
+	h := handlers{svc: svc, appBuildTime: appBuildTime}
 
 	router.GET("/", h.appHome)
 }
 
 func (h handlers) appHome(c *gin.Context) {
 	var buf bytes.Buffer
-	if err := homePageTemplate.Execute(&buf, homePageData{AppVersion: h.appVersion}); err != nil {
+	if err := homePageTemplate.Execute(&buf, homePageData{AppBuildTime: h.appBuildTime}); err != nil {
 		c.String(http.StatusInternalServerError, "failed to render home page")
 		return
 	}

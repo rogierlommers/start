@@ -18,7 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var appVersion = "<< replaced during build >>"
+var appBuildTime = "<< replaced during build >>"
 
 func main() {
 
@@ -28,7 +28,7 @@ func main() {
 	}
 
 	// get a configured HTTP server instance
-	ctx, err := server.NewHTTPServer(cfg, appVersion)
+	ctx, err := server.NewHTTPServer(cfg, appBuildTime)
 	if err != nil {
 		logrus.Fatalf("failed to initialize HTTP server: %v", err)
 	}
