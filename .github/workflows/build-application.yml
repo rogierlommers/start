@@ -34,11 +34,37 @@ jobs:
       - name: Test with coverage
         run: go test ./... -coverprofile=coverage.out
 
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v4
+      - name: Generate coverage reports
+        run: |
+          go tool cover -func=coverage.out | tee coverage.txt
+          go tool cover -html=coverage.out -o coverage.html
+
+      - name: Add coverage to workflow summary
+        run: |
+          total_coverage="$(awk '/^total:/ {print $3}' coverage.txt)"
+
+          echo "## Test Coverage" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Total coverage: ${total_coverage}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "<details><summary>Function-level coverage details</summary>" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          cat coverage.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "</details>" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "HTML coverage report is available in the workflow artifacts as 'coverage-report'." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
         with:
-          file: ./coverage.out
-          flags: unittests
+          name: coverage-report
+          path: |
+            coverage.out
+            coverage.txt
+            coverage.html
 
   build-docker-image:
     runs-on: ubuntu-latest
