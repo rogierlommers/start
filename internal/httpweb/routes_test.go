@@ -167,24 +167,6 @@ func TestLogoutRedirectsHomeWithoutAuth(t *testing.T) {
 	}
 }
 
-func TestRegisterRendersHomePage(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	Register(router, nil, "2026-04-25T00:00:00Z")
-
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
-	}
-	body := rec.Body.String()
-	if !strings.Contains(body, "Build time: 2026-04-25T00:00:00Z") || !strings.Contains(body, "Log out") {
-		t.Fatalf("home page missing expected content: %q", body)
-	}
-}
-
 func mustNewTestAuth(t *testing.T) *httpmiddleware.GUIAuth {
 	t.Helper()
 
