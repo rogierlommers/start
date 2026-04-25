@@ -651,10 +651,10 @@
           if (!matchesHidden) return false
 
           if (!searchQuery) return true
-          const title = String(bm.title || '')
-          const tag = String(bm.tag || '').trim()
-          const text = `${title} ${bm.url} ${tag}`
-          return fuzzyMatch(searchQuery, text)
+          const q = searchQuery.toLowerCase()
+          const title = String(bm.title || '').toLowerCase()
+          const tag = String(bm.tag || '').trim().toLowerCase()
+          return title.includes(q) || tag.includes(q)
         })
 
         container.innerHTML = ''
