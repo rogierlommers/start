@@ -67,7 +67,7 @@
           <div class="flex items-center">
             <span class="text-2xl font-semibold tracking-[0.02em] text-gray-500/90 drop-shadow-[0_1px_0_rgba(255,255,255,0.6)]">start.lommers.org</span>
           </div>
-          <div class="mt-1 text-xs font-medium tracking-wide text-gray-500">Build time: {{ .AppBuildTime }}</div>
+          <div class="mt-1 text-xs font-medium tracking-wide text-gray-500">Build time: <span id="build-time" data-build-time="{{ .AppBuildTime }}">{{ .AppBuildTime }}</span></div>
         </div>
         <form action="/logout" method="post">
           <button type="submit"
@@ -290,6 +290,50 @@
         }
 
         return `${d.toLocaleString()} (${relative})`
+      }
+
+      function fmtRelativeTime(iso) {
+        if (!iso) return 'Unknown time'
+        const d = new Date(iso)
+        if (Number.isNaN(d.getTime())) return iso
+
+        const now = Date.now()
+        const diffMs = Math.max(0, now - d.getTime())
+        const minute = 60 * 1000
+        const hour = 60 * minute
+        const day = 24 * hour
+        const week = 7 * day
+
+        if (diffMs < minute) return 'just now'
+        if (diffMs < hour) {
+          const mins = Math.floor(diffMs / minute)
+          return `${mins} minute${mins === 1 ? '' : 's'} ago`
+        }
+        if (diffMs < day) {
+          const hours = Math.floor(diffMs / hour)
+          return `${hours} hour${hours === 1 ? '' : 's'} ago`
+        }
+        if (diffMs < week) {
+          const days = Math.floor(diffMs / day)
+          return `${days} day${days === 1 ? '' : 's'} ago`
+        }
+
+        const weeks = Math.floor(diffMs / week)
+        return `${weeks} week${weeks === 1 ? '' : 's'} ago`
+      }
+
+      function renderBuildTime() {
+        const el = document.getElementById('build-time')
+        if (!el) return
+
+        const rawValue = el.dataset.buildTime || el.textContent || ''
+        const formatted = fmtRelativeTime(rawValue)
+        el.textContent = formatted
+
+        const longForm = fmtDateTime(rawValue)
+        if (longForm !== 'Unknown time' && longForm !== rawValue) {
+          el.title = longForm
+        }
       }
 
       function isImageFile(file) {
@@ -951,6 +995,7 @@
       // ── Init ─────────────────────────────────────────────────
       const savedTab = (() => { try { return sessionStorage.getItem(TAB_STORAGE_KEY) } catch (_) { return null } })()
       activateTab(savedTab || 'bookmarks')
+      renderBuildTime()
       initReadingListBookmarklet()
       loadStorageFiles()
       loadReadingListItems()
