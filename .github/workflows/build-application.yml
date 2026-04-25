@@ -28,7 +28,7 @@ jobs:
 
       - name: Build
         run: |
-          BUILD_TIME="$(TZ=Europe/Amsterdam date +%Y-%m-%d\ %H:%M:%S\ %Z)"
+          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           go build -ldflags "-X 'main.appBuildTime=${BUILD_TIME}'" ./cmd/start
 
       - name: Test with coverage

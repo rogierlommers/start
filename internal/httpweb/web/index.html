@@ -295,7 +295,10 @@
       function fmtRelativeTime(iso) {
         if (!iso) return 'Unknown time'
         const d = new Date(iso)
-        if (Number.isNaN(d.getTime())) return 'Unknown time'
+        if (Number.isNaN(d.getTime())) {
+          console.log('fmtRelativeTime: unparseable build time value:', iso)
+          return 'Unknown time'
+        }
 
         const now = Date.now()
         const diffMs = Math.max(0, now - d.getTime())
