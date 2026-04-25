@@ -27,6 +27,7 @@ type bookmarkResponse struct {
 	ID         int64     `json:"id"`
 	URL        string    `json:"url"`
 	Title      string    `json:"title"`
+	Tag        string    `json:"tag,omitempty"`
 	CategoryID int64     `json:"category_id"`
 	Position   int       `json:"position"`
 	Hidden     bool      `json:"hidden"`
@@ -36,12 +37,14 @@ type bookmarkResponse struct {
 type createBookmarkRequest struct {
 	URL        string `json:"url"             binding:"required"`
 	Title      string `json:"title"`
+	Tag        string `json:"tag"`
 	CategoryID int64  `json:"category_id"     binding:"required"`
 }
 
 type updateBookmarkRequest struct {
 	URL        string `json:"url"             binding:"required"`
 	Title      string `json:"title"`
+	Tag        string `json:"tag"`
 	CategoryID int64  `json:"category_id"     binding:"required"`
 }
 
@@ -78,6 +81,7 @@ func bookmarkToResponse(b service.Bookmark) bookmarkResponse {
 		ID:         b.ID,
 		URL:        b.URL,
 		Title:      b.Title,
+		Tag:        b.Tag,
 		CategoryID: b.CategoryID,
 		Position:   b.Position,
 		Hidden:     b.Hidden,
@@ -230,6 +234,7 @@ func (h handlers) createBookmark(c *gin.Context) {
 	b, err := h.svc.CreateBookmark(c.Request.Context(), service.CreateBookmarkInput{
 		URL:        req.URL,
 		Title:      req.Title,
+		Tag:        req.Tag,
 		CategoryID: req.CategoryID,
 	})
 	if err != nil {
@@ -280,6 +285,7 @@ func (h handlers) updateBookmark(c *gin.Context) {
 		ID:         id,
 		URL:        req.URL,
 		Title:      req.Title,
+		Tag:        req.Tag,
 		CategoryID: req.CategoryID,
 	})
 	if err != nil {
@@ -403,6 +409,7 @@ func (h handlers) toggleBookmarkHidden(c *gin.Context) {
 		ID:         bm.ID,
 		URL:        bm.URL,
 		Title:      bm.Title,
+		Tag:        bm.Tag,
 		CategoryID: bm.CategoryID,
 		Position:   bm.Position,
 		Hidden:     bm.Hidden,

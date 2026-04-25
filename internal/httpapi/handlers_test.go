@@ -65,9 +65,12 @@ func TestCategoryAndBookmarkHandlers(t *testing.T) {
 		t.Fatalf("list categories status = %d, want %d", rec.Code, http.StatusOK)
 	}
 
-	rec = performJSONRequest(router, http.MethodPost, "/api/bookmarks", `{"url":"https://example.com","title":"Example","category_id":1}`)
+	rec = performJSONRequest(router, http.MethodPost, "/api/bookmarks", `{"url":"https://example.com","title":"Example","tag":"work","category_id":1}`)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create bookmark status = %d, want %d body=%s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"tag":"work"`) {
+		t.Fatalf("create bookmark body = %q, want tag", rec.Body.String())
 	}
 
 	rec = performJSONRequest(router, http.MethodPost, "/api/bookmarks", `{"url":"https://example.com","title":"Duplicate","category_id":1}`)
@@ -80,8 +83,8 @@ func TestCategoryAndBookmarkHandlers(t *testing.T) {
 		t.Fatalf("list bookmarks response = status %d body %q", rec.Code, rec.Body.String())
 	}
 
-	rec = performJSONRequest(router, http.MethodPatch, "/api/bookmarks/1", `{"url":"https://example.org","title":"Updated","category_id":1}`)
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Updated") {
+	rec = performJSONRequest(router, http.MethodPatch, "/api/bookmarks/1", `{"url":"https://example.org","title":"Updated","tag":"reference","category_id":1}`)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Updated") || !strings.Contains(rec.Body.String(), `"tag":"reference"`) {
 		t.Fatalf("update bookmark response = status %d body %q", rec.Code, rec.Body.String())
 	}
 
@@ -96,7 +99,7 @@ func TestCategoryAndBookmarkHandlers(t *testing.T) {
 	}
 
 	rec = performJSONRequest(router, http.MethodGet, "/api/bookmarks?include_hidden=true", "")
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "example.org") {
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "example.org") || !strings.Contains(rec.Body.String(), `"tag":"reference"`) {
 		t.Fatalf("include_hidden response = status %d body %q", rec.Code, rec.Body.String())
 	}
 

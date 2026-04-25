@@ -52,4 +52,11 @@ var sqliteMigrations = []sqliteMigration{
 			`CREATE INDEX IF NOT EXISTS idx_reading_list_created_at ON reading_list_items(created_at DESC, id DESC)`,
 		},
 	},
+	{
+		version: 2,
+		name:    "add_bookmark_tags",
+		statements: []string{
+			`ALTER TABLE bookmarks ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'`,
+		},
+	},
 }

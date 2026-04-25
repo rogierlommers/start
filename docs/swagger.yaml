@@ -51,6 +51,8 @@ definitions:
         type: integer
       position:
         type: integer
+      tag:
+        type: string
       title:
         type: string
       url:
@@ -67,6 +69,8 @@ definitions:
     properties:
       category_id:
         type: integer
+      tag:
+        type: string
       title:
         type: string
       url:
@@ -139,6 +143,8 @@ definitions:
     properties:
       category_id:
         type: integer
+      tag:
+        type: string
       title:
         type: string
       url:

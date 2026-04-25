@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -209,10 +210,15 @@ func (s *SQLiteStore) CreateBookmark(ctx context.Context, b Bookmark) (Bookmark,
 	}
 
 	createdAt := time.Now().UTC()
+	storedTag, err := marshalBookmarkTag(b.Tag)
+	if err != nil {
+		return Bookmark{}, err
+	}
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO bookmarks(url, title, category_id, position, hidden, created_at) VALUES(?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO bookmarks(url, title, tags, category_id, position, hidden, created_at) VALUES(?, ?, ?, ?, ?, ?, ?)`,
 		b.URL,
 		b.Title,
+		storedTag,
 		b.CategoryID,
 		position,
 		boolToInt(b.Hidden),
@@ -238,6 +244,7 @@ func (s *SQLiteStore) CreateBookmark(ctx context.Context, b Bookmark) (Bookmark,
 		ID:         id,
 		URL:        b.URL,
 		Title:      b.Title,
+		Tag:        strings.TrimSpace(b.Tag),
 		CategoryID: b.CategoryID,
 		Position:   position,
 		Hidden:     b.Hidden,
@@ -258,10 +265,16 @@ func (s *SQLiteStore) UpdateBookmark(ctx context.Context, b Bookmark) (Bookmark,
 		return Bookmark{}, fmt.Errorf("category %d: %w", b.CategoryID, ErrCategoryNotFound)
 	}
 
+	storedTag, err := marshalBookmarkTag(b.Tag)
+	if err != nil {
+		return Bookmark{}, err
+	}
+
 	res, err := tx.ExecContext(ctx,
-		`UPDATE bookmarks SET url = ?, title = ?, category_id = ?, hidden = ? WHERE id = ?`,
+		`UPDATE bookmarks SET url = ?, title = ?, tags = ?, category_id = ?, hidden = ? WHERE id = ?`,
 		b.URL,
 		b.Title,
+		storedTag,
 		b.CategoryID,
 		boolToInt(b.Hidden),
 		b.ID,
@@ -295,7 +308,7 @@ func (s *SQLiteStore) UpdateBookmark(ctx context.Context, b Bookmark) (Bookmark,
 
 func (s *SQLiteStore) ListBookmarks(ctx context.Context, includeHidden bool) ([]Bookmark, error) {
 	query := `
-		SELECT id, url, title, category_id, position, hidden, created_at
+		SELECT id, url, title, tags, category_id, position, hidden, created_at
 		FROM bookmarks
 	`
 	if includeHidden {
@@ -467,7 +480,7 @@ func categoryExists(ctx context.Context, tx *sql.Tx, categoryID int64) (bool, er
 
 func getBookmarkByID(ctx context.Context, tx *sql.Tx, id int64) (Bookmark, error) {
 	row := tx.QueryRowContext(ctx,
-		`SELECT id, url, title, category_id, position, hidden, created_at FROM bookmarks WHERE id = ?`,
+		`SELECT id, url, title, tags, category_id, position, hidden, created_at FROM bookmarks WHERE id = ?`,
 		id,
 	)
 	b, err := scanBookmarkRow(row)
@@ -483,13 +496,20 @@ func getBookmarkByID(ctx context.Context, tx *sql.Tx, id int64) (Bookmark, error
 func scanBookmark(rows *sql.Rows) (Bookmark, error) {
 	var (
 		b         Bookmark
+		storedTag string
 		hiddenInt int
 		createdAt string
 	)
 
-	if err := rows.Scan(&b.ID, &b.URL, &b.Title, &b.CategoryID, &b.Position, &hiddenInt, &createdAt); err != nil {
+	if err := rows.Scan(&b.ID, &b.URL, &b.Title, &storedTag, &b.CategoryID, &b.Position, &hiddenInt, &createdAt); err != nil {
 		return Bookmark{}, fmt.Errorf("scan bookmark: %w", err)
 	}
+
+	tag, err := unmarshalBookmarkTag(storedTag)
+	if err != nil {
+		return Bookmark{}, err
+	}
+	b.Tag = tag
 
 	parsedTime, err := parseSQLiteTime(createdAt)
 	if err != nil {
@@ -504,13 +524,20 @@ func scanBookmark(rows *sql.Rows) (Bookmark, error) {
 func scanBookmarkRow(row *sql.Row) (Bookmark, error) {
 	var (
 		b         Bookmark
+		storedTag string
 		hiddenInt int
 		createdAt string
 	)
 
-	if err := row.Scan(&b.ID, &b.URL, &b.Title, &b.CategoryID, &b.Position, &hiddenInt, &createdAt); err != nil {
+	if err := row.Scan(&b.ID, &b.URL, &b.Title, &storedTag, &b.CategoryID, &b.Position, &hiddenInt, &createdAt); err != nil {
 		return Bookmark{}, fmt.Errorf("scan bookmark row: %w", err)
 	}
+
+	tag, err := unmarshalBookmarkTag(storedTag)
+	if err != nil {
+		return Bookmark{}, err
+	}
+	b.Tag = tag
 
 	parsedTime, err := parseSQLiteTime(createdAt)
 	if err != nil {
@@ -560,6 +587,42 @@ func boolToInt(v bool) int {
 		return 1
 	}
 	return 0
+}
+
+func marshalBookmarkTag(tag string) (string, error) {
+	trimmed := strings.TrimSpace(tag)
+	return trimmed, nil
+}
+
+func unmarshalBookmarkTag(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", nil
+	}
+
+	if strings.HasPrefix(trimmed, "[") {
+		var tags []string
+		if err := json.Unmarshal([]byte(trimmed), &tags); err != nil {
+			return "", fmt.Errorf("unmarshal bookmark tag array: %w", err)
+		}
+		for _, tag := range tags {
+			tag = strings.TrimSpace(tag)
+			if tag != "" {
+				return tag, nil
+			}
+		}
+		return "", nil
+	}
+
+	if strings.HasPrefix(trimmed, `"`) {
+		var tag string
+		if err := json.Unmarshal([]byte(trimmed), &tag); err != nil {
+			return "", fmt.Errorf("unmarshal bookmark tag string: %w", err)
+		}
+		return strings.TrimSpace(tag), nil
+	}
+
+	return trimmed, nil
 }
 
 func rollbackTx(tx *sql.Tx) {

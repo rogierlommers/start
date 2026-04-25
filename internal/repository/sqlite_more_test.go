@@ -48,9 +48,12 @@ func TestSQLiteBookmarkLifecycleAndErrors(t *testing.T) {
 		t.Fatalf("CreateBookmark(missing category) error = %v, want %v", err, ErrCategoryNotFound)
 	}
 
-	bm, err := store.CreateBookmark(ctx, Bookmark{URL: "https://example.com", Title: "Title", CategoryID: cat.ID})
+	bm, err := store.CreateBookmark(ctx, Bookmark{URL: "https://example.com", Title: "Title", Tag: "alpha", CategoryID: cat.ID})
 	if err != nil {
 		t.Fatalf("CreateBookmark() error = %v", err)
+	}
+	if bm.Tag != "alpha" {
+		t.Fatalf("CreateBookmark().Tag = %q", bm.Tag)
 	}
 
 	_, err = store.CreateBookmark(ctx, Bookmark{URL: "https://example.com", CategoryID: cat.ID})
@@ -61,11 +64,12 @@ func TestSQLiteBookmarkLifecycleAndErrors(t *testing.T) {
 	bm.Hidden = true
 	bm.URL = "https://example.org"
 	bm.Title = "Updated"
+	bm.Tag = "updated"
 	updated, err := store.UpdateBookmark(ctx, bm)
 	if err != nil {
 		t.Fatalf("UpdateBookmark() error = %v", err)
 	}
-	if !updated.Hidden || updated.URL != "https://example.org" {
+	if !updated.Hidden || updated.URL != "https://example.org" || updated.Tag != "updated" {
 		t.Fatalf("UpdateBookmark() = %+v", updated)
 	}
 
@@ -88,6 +92,9 @@ func TestSQLiteBookmarkLifecycleAndErrors(t *testing.T) {
 	}
 	if len(listed) != 1 || listed[0].ID != bm.ID {
 		t.Fatalf("ListBookmarks(true) = %+v", listed)
+	}
+	if listed[0].Tag != "updated" {
+		t.Fatalf("ListBookmarks(true).Tag = %q", listed[0].Tag)
 	}
 
 	if err := store.ReorderBookmarks(ctx, []int64{}); !errors.Is(err, ErrInvalidBookmarkOrder) {

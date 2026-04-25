@@ -77,6 +77,7 @@ func (m *MemoryStore) CreateBookmark(_ context.Context, b Bookmark) (Bookmark, e
 	b.ID = m.nextBmkID
 	b.Position = m.nextBookmarkPosition()
 	b.CreatedAt = time.Now().UTC()
+	b.Tag = strings.TrimSpace(b.Tag)
 	m.nextBmkID++
 	m.bookmarks[b.ID] = b
 
@@ -107,6 +108,7 @@ func (m *MemoryStore) UpdateBookmark(_ context.Context, b Bookmark) (Bookmark, e
 
 	existing.URL = b.URL
 	existing.Title = b.Title
+	existing.Tag = strings.TrimSpace(b.Tag)
 	existing.CategoryID = b.CategoryID
 	existing.Hidden = b.Hidden
 	m.bookmarks[b.ID] = existing
@@ -121,6 +123,7 @@ func (m *MemoryStore) ListBookmarks(_ context.Context, includeHidden bool) ([]Bo
 	out := make([]Bookmark, 0, len(m.bookmarks))
 	for _, b := range m.bookmarks {
 		if !b.Hidden || includeHidden {
+			b.Tag = strings.TrimSpace(b.Tag)
 			out = append(out, b)
 		}
 	}

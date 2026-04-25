@@ -38,6 +38,7 @@ type Bookmark struct {
 	ID         int64
 	URL        string
 	Title      string
+	Tag        string
 	CategoryID int64
 	Position   int
 	Hidden     bool

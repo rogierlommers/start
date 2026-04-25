@@ -29,7 +29,7 @@ func TestMemoryStoreCategoryAndBookmarkFlow(t *testing.T) {
 		t.Fatalf("CreateBookmark(missing category) error = %v, want %v", err, ErrCategoryNotFound)
 	}
 
-	bm1, err := store.CreateBookmark(ctx, Bookmark{URL: "https://one.example", CategoryID: cat.ID})
+	bm1, err := store.CreateBookmark(ctx, Bookmark{URL: "https://one.example", Tag: "alpha", CategoryID: cat.ID})
 	if err != nil {
 		t.Fatalf("CreateBookmark(first) error = %v", err)
 	}
@@ -43,11 +43,11 @@ func TestMemoryStoreCategoryAndBookmarkFlow(t *testing.T) {
 		t.Fatalf("CreateBookmark(duplicate URL) error = %v, want %v", err, ErrBookmarkAlreadyExists)
 	}
 
-	updated, err := store.UpdateBookmark(ctx, Bookmark{ID: bm1.ID, URL: "https://updated.example", CategoryID: cat.ID, Hidden: true})
+	updated, err := store.UpdateBookmark(ctx, Bookmark{ID: bm1.ID, URL: "https://updated.example", Tag: "updated", CategoryID: cat.ID, Hidden: true})
 	if err != nil {
 		t.Fatalf("UpdateBookmark() error = %v", err)
 	}
-	if !updated.Hidden || updated.URL != "https://updated.example" {
+	if !updated.Hidden || updated.URL != "https://updated.example" || updated.Tag != "updated" {
 		t.Fatalf("UpdateBookmark() = %+v", updated)
 	}
 
@@ -70,6 +70,9 @@ func TestMemoryStoreCategoryAndBookmarkFlow(t *testing.T) {
 	}
 	if len(all) != 2 {
 		t.Fatalf("ListBookmarks(true) len = %d, want 2", len(all))
+	}
+	if all[0].Tag != "updated" {
+		t.Fatalf("ListBookmarks(true) tags = %+v", all)
 	}
 
 	if err := store.ReorderBookmarks(ctx, []int64{bm1.ID}); !errors.Is(err, ErrInvalidBookmarkOrder) {

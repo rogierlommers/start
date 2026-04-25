@@ -27,6 +27,7 @@ type Bookmark struct {
 	ID         int64
 	URL        string
 	Title      string
+	Tag        string
 	CategoryID int64
 	Position   int
 	Hidden     bool
@@ -40,6 +41,7 @@ type CreateCategoryInput struct {
 type CreateBookmarkInput struct {
 	URL        string
 	Title      string
+	Tag        string
 	CategoryID int64
 }
 
@@ -47,6 +49,7 @@ type UpdateBookmarkInput struct {
 	ID         int64
 	URL        string
 	Title      string
+	Tag        string
 	CategoryID int64
 }
 
@@ -98,9 +101,12 @@ func (s *Service) CreateBookmark(ctx context.Context, in CreateBookmarkInput) (B
 		return Bookmark{}, fmt.Errorf("%w: url must be a valid http or https URL", ErrInvalidBookmarkInput)
 	}
 
+	tag := normalizeBookmarkTag(in.Tag)
+
 	b, err := s.store.CreateBookmark(ctx, repository.Bookmark{
 		URL:        rawURL,
 		Title:      title,
+		Tag:        tag,
 		CategoryID: in.CategoryID,
 	})
 	if err != nil {
@@ -137,10 +143,13 @@ func (s *Service) UpdateBookmark(ctx context.Context, in UpdateBookmarkInput) (B
 		return Bookmark{}, fmt.Errorf("%w: url must be a valid http or https URL", ErrInvalidBookmarkInput)
 	}
 
+	tag := normalizeBookmarkTag(in.Tag)
+
 	b, err := s.store.UpdateBookmark(ctx, repository.Bookmark{
 		ID:         in.ID,
 		URL:        rawURL,
 		Title:      title,
+		Tag:        tag,
 		CategoryID: in.CategoryID,
 	})
 	if err != nil {
@@ -255,9 +264,14 @@ func repoBookmarkToService(b repository.Bookmark) Bookmark {
 		ID:         b.ID,
 		URL:        b.URL,
 		Title:      b.Title,
+		Tag:        normalizeBookmarkTag(b.Tag),
 		CategoryID: b.CategoryID,
 		Position:   b.Position,
 		Hidden:     b.Hidden,
 		CreatedAt:  b.CreatedAt,
 	}
+}
+
+func normalizeBookmarkTag(tag string) string {
+	return strings.TrimSpace(tag)
 }

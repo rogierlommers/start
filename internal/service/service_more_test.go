@@ -51,6 +51,7 @@ func TestCategoryAndBookmarkLifecycle(t *testing.T) {
 	bm, err := svc.CreateBookmark(context.Background(), CreateBookmarkInput{
 		URL:        "https://example.com",
 		Title:      " Example ",
+		Tag:        " work ",
 		CategoryID: cat.ID,
 	})
 	if err != nil {
@@ -59,17 +60,21 @@ func TestCategoryAndBookmarkLifecycle(t *testing.T) {
 	if bm.Title != "Example" {
 		t.Fatalf("CreateBookmark().Title = %q, want %q", bm.Title, "Example")
 	}
+	if bm.Tag != "work" {
+		t.Fatalf("CreateBookmark().Tag = %q, want %q", bm.Tag, "work")
+	}
 
 	bm, err = svc.UpdateBookmark(context.Background(), UpdateBookmarkInput{
 		ID:         bm.ID,
 		URL:        "https://example.org",
 		Title:      " Updated ",
+		Tag:        " reference ",
 		CategoryID: cat.ID,
 	})
 	if err != nil {
 		t.Fatalf("UpdateBookmark() error = %v", err)
 	}
-	if bm.URL != "https://example.org" || bm.Title != "Updated" {
+	if bm.URL != "https://example.org" || bm.Title != "Updated" || bm.Tag != "reference" {
 		t.Fatalf("UpdateBookmark() = %+v", bm)
 	}
 
@@ -95,6 +100,9 @@ func TestCategoryAndBookmarkLifecycle(t *testing.T) {
 	}
 	if len(hidden) != 1 || hidden[0].ID != bm.ID {
 		t.Fatalf("ListBookmarks(true) = %+v", hidden)
+	}
+	if hidden[0].Tag != "reference" {
+		t.Fatalf("ListBookmarks(true).Tag = %q, want %q", hidden[0].Tag, "reference")
 	}
 
 	if err := svc.ReorderBookmarks(context.Background(), []int64{bm.ID}); err != nil {
