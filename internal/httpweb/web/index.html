@@ -517,8 +517,22 @@
       }
 
       async function persistBookmarkOrder() {
-        const ids = [...document.querySelectorAll('#bookmarks-list li[data-id]')]
+        // Only the visible bookmarks appear in the DOM; hidden ones are omitted
+        // when "show hidden" is off. The reorder API requires every bookmark ID
+        // (including hidden ones), so we build the full ordered list by taking
+        // the new visible order from the DOM and slotting hidden bookmarks back
+        // in at their original relative positions from the cache.
+        const visibleIds = [...document.querySelectorAll('#bookmarks-list li[data-id]')]
           .map(el => Number(el.dataset.id))
+
+        const hiddenIdSet = new Set(
+          allBookmarksCache.filter(bm => bm.hidden).map(bm => bm.id)
+        )
+
+        let visibleIdx = 0
+        const ids = allBookmarksCache.map(bm =>
+          hiddenIdSet.has(bm.id) ? bm.id : visibleIds[visibleIdx++]
+        )
 
         await apiFetch('/api/bookmarks/reorder', {
           method: 'PATCH',
