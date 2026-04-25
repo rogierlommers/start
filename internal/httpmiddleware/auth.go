@@ -19,7 +19,8 @@ import (
 const (
 	guiSessionCookieName = "start_gui_session"
 	guiSessionPayload    = "gui"
-	guiSessionTTL        = 7 * 24 * time.Hour
+	guiSessionTTL        = 30 * 24 * time.Hour
+	minSessionSecretLen  = 32
 )
 
 // GUIAuth provides cookie-backed authentication for the dashboard and API.
@@ -41,9 +42,9 @@ func NewGUIAuth(cfg config.Config) (*GUIAuth, error) {
 		return &GUIAuth{}, nil
 	}
 
-	secret := make([]byte, 32)
-	if _, err := rand.Read(secret); err != nil {
-		return nil, fmt.Errorf("generate GUI auth secret: %w", err)
+	secret, err := sessionSecret(cfg.GUISessionSecret)
+	if err != nil {
+		return nil, err
 	}
 
 	return &GUIAuth{
@@ -54,6 +55,26 @@ func NewGUIAuth(cfg config.Config) (*GUIAuth, error) {
 		apiPass:  cfg.APIPassword,
 		secret:   secret,
 	}, nil
+}
+
+func sessionSecret(raw string) ([]byte, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		secret := make([]byte, 32)
+		if _, err := rand.Read(secret); err != nil {
+			return nil, fmt.Errorf("generate GUI auth secret: %w", err)
+		}
+
+		logrus.Warn("GUI_SESSION_SECRET is not configured; login sessions will be invalidated on server restart")
+		return secret, nil
+	}
+
+	if len(raw) < minSessionSecretLen {
+		return nil, fmt.Errorf("GUI_SESSION_SECRET must be at least %d characters", minSessionSecretLen)
+	}
+
+	sum := sha256.Sum256([]byte(raw))
+	return sum[:], nil
 }
 
 // Enabled reports whether GUI authentication is active.

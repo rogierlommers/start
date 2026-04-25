@@ -3,6 +3,7 @@ package httpmiddleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"start/internal/config"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -118,5 +119,40 @@ func TestRequireAuthAllowsValidAPIBasicAuth(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestNewGUIAuthUsesConfiguredSessionSecret(t *testing.T) {
+	auth, err := NewGUIAuth(config.Config{
+		GUIUsername:      "user",
+		GUIPassword:      "pass",
+		GUISessionSecret: "01234567890123456789012345678901",
+	})
+	if err != nil {
+		t.Fatalf("NewGUIAuth() error = %v", err)
+	}
+
+	other, err := NewGUIAuth(config.Config{
+		GUIUsername:      "user",
+		GUIPassword:      "pass",
+		GUISessionSecret: "01234567890123456789012345678901",
+	})
+	if err != nil {
+		t.Fatalf("NewGUIAuth() second call error = %v", err)
+	}
+
+	if got, want := auth.sessionToken(), other.sessionToken(); got != want {
+		t.Fatalf("sessionToken() = %q, want stable token %q", got, want)
+	}
+}
+
+func TestNewGUIAuthRejectsShortSessionSecret(t *testing.T) {
+	_, err := NewGUIAuth(config.Config{
+		GUIUsername:      "user",
+		GUIPassword:      "pass",
+		GUISessionSecret: "too-short",
+	})
+	if err == nil {
+		t.Fatal("NewGUIAuth() error = nil, want error")
 	}
 }

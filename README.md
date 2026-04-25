@@ -17,6 +17,7 @@ GUI authentication environment variables:
 
 - `GUI_USERNAME`
 - `GUI_PASSWORD`
+- `GUI_SESSION_SECRET` (recommended; set this to a stable secret of at least 32 characters to keep login sessions valid across server restarts)
 
 API basic auth environment variables (for `curl`/non-browser API access):
 
@@ -24,6 +25,8 @@ API basic auth environment variables (for `curl`/non-browser API access):
 - `API_PASSWORD`
 
 If `API_USERNAME` and `API_PASSWORD` are set, protected API routes also accept HTTP Basic auth.
+
+If `GUI_SESSION_SECRET` is not set, the server falls back to an in-memory random secret and existing login sessions are invalidated on each restart.
 
 ## AI Skill
 

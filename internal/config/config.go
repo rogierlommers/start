@@ -36,6 +36,7 @@ type Config struct {
 	MailerEmailWork        string
 	GUIUsername            string
 	GUIPassword            string
+	GUISessionSecret       string
 	APIUsername            string
 	APIPassword            string
 }
@@ -59,6 +60,7 @@ func Load() (Config, error) {
 		SQLitePath:       os.Getenv("SQLITE_PATH"),
 		GUIUsername:      os.Getenv("GUI_USERNAME"),
 		GUIPassword:      os.Getenv("GUI_PASSWORD"),
+		GUISessionSecret: os.Getenv("GUI_SESSION_SECRET"),
 		APIUsername:      os.Getenv("API_USERNAME"),
 		APIPassword:      os.Getenv("API_PASSWORD"),
 		EnableAccessLogs: false, // default to false, can be enabled with env var
