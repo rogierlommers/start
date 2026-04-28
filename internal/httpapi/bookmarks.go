@@ -195,6 +195,10 @@ func (h handlers) listBookmarksAlfred(c *gin.Context) {
 		if title == "" {
 			title = b.URL
 		}
+		tag := strings.TrimSpace(b.Tag)
+		if tag != "" {
+			title = tag + " - " + title
+		}
 
 		sum := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(b.URL))))
 		items = append(items, alfredBookmarkItemResponse{

@@ -104,7 +104,7 @@ func TestCategoryAndBookmarkHandlers(t *testing.T) {
 	}
 
 	rec = performJSONRequest(router, http.MethodGet, "/api/bookmarks/alfred?include_hidden=true", "")
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"arg":"https://example.org"`) {
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"arg":"https://example.org"`) || !strings.Contains(rec.Body.String(), `"title":"reference - Updated"`) {
 		t.Fatalf("alfred response = status %d body %q", rec.Code, rec.Body.String())
 	}
 
