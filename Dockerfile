@@ -4,8 +4,6 @@ FROM golang:1.26.2-alpine AS builder
 
 WORKDIR /src
 
-ARG VERSION
-
 # Install tzdata for timezone support.
 RUN apk add --no-cache tzdata
 
