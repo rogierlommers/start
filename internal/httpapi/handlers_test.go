@@ -230,7 +230,7 @@ func TestSendMailHandler(t *testing.T) {
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("accepted mail status = %d, want %d body=%q", rec.Code, http.StatusAccepted, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), `"status":"accepted"`) {
+	if !strings.Contains(rec.Body.String(), "mail sent: 73 B") {
 		t.Fatalf("accepted mail body = %q", rec.Body.String())
 	}
 }
