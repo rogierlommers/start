@@ -9,6 +9,7 @@ import (
 	"start/internal/config"
 	"start/internal/service"
 
+	"github.com/dustin/go-humanize"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
@@ -21,28 +22,24 @@ type sendMailRequest struct {
 	To      string `form:"to"`
 }
 
-type sendMailResponse struct {
-	Status string `json:"status"`
-}
-
 // sendMail godoc
 // @Summary Send email message with optional attachments
 // @Tags mail
 // @Accept mpfd
-// @Produce json
+// @Produce plain
 // @Security ApiBasicAuth
 // @Param body formData string true "Email body"
 // @Param subject formData string false "Email subject"
 // @Param to formData string false "Explicit recipient email address"
 // @Param attachments formData file false "File attachments (can be multiple)"
-// @Success 202 {object} sendMailResponse
-// @Failure 400 {object} apiErrorResponse
-// @Failure 503 {object} apiErrorResponse
+// @Success 202 "Mail accepted for sending"
+// @Failure 400 "Bad request"
+// @Failure 503 "Service unavailable"
 // @Router /api/mail/send [post]
 func (h handlers) sendMail(c *gin.Context) {
 	var req sendMailRequest
 	if err := c.ShouldBind(&req); err != nil {
-		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid request: missing required fields"})
+		c.String(http.StatusBadRequest, "invalid request: missing required fields")
 		return
 	}
 
@@ -60,7 +57,7 @@ func (h handlers) sendMail(c *gin.Context) {
 	form, err := c.MultipartForm()
 	if err != nil {
 		logrus.Errorf("failed to parse multipart form: %v", err)
-		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid request: failed to parse form data"})
+		c.String(http.StatusBadRequest, "invalid request: failed to parse form data")
 		return
 	}
 
@@ -70,7 +67,7 @@ func (h handlers) sendMail(c *gin.Context) {
 			file, err := fileHeader.Open()
 			if err != nil {
 				logrus.Infof("failed to open attachment %s: %v", fileHeader.Filename, err)
-				c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid request: failed to read attachment"})
+				c.String(http.StatusBadRequest, "invalid request: failed to read attachment")
 				return
 			}
 			defer file.Close()
@@ -78,7 +75,7 @@ func (h handlers) sendMail(c *gin.Context) {
 			// Limit attachment size to 10MB per file
 			data, err := io.ReadAll(io.LimitReader(file, 10*1024*1024))
 			if err != nil {
-				c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid request: attachment too large or read error"})
+				c.String(http.StatusBadRequest, "invalid request: attachment too large or read error")
 				return
 			}
 
@@ -90,7 +87,7 @@ func (h handlers) sendMail(c *gin.Context) {
 	}
 
 	// send actual mail via service layer (non-blocking, returns immediately after queuing the mail task)
-	err = h.svc.SendMail(c.Request.Context(), service.SendMailInput{
+	bytes, err := h.svc.SendMail(c.Request.Context(), service.SendMailInput{
 		Body:        req.Body,
 		Subject:     req.Subject,
 		To:          req.To,
@@ -101,18 +98,19 @@ func (h handlers) sendMail(c *gin.Context) {
 		logrus.Errorf("failed to send mail: %v", err)
 		switch {
 		case errors.Is(err, service.ErrInvalidMailInput):
-			c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid mail payload"})
+			c.String(http.StatusBadRequest, "invalid mail payload")
 		case errors.Is(err, service.ErrMailQueueFull):
-			c.JSON(http.StatusServiceUnavailable, apiErrorResponse{Error: "mail service temporarily unavailable; try again later"})
+			c.String(http.StatusServiceUnavailable, "mail service temporarily unavailable; try again later")
 		case errors.Is(err, service.ErrDisabledMailer):
-			c.JSON(http.StatusServiceUnavailable, apiErrorResponse{Error: "mailer is not configured"})
+			c.String(http.StatusServiceUnavailable, "mailer is not configured")
 		default:
-			c.JSON(http.StatusServiceUnavailable, apiErrorResponse{Error: "failed to send mail"})
+			c.String(http.StatusServiceUnavailable, "failed to send mail")
 		}
 		return
 	}
 
-	c.JSON(http.StatusAccepted, sendMailResponse{Status: "accepted"})
+	humanFriendlyBytes := humanize.Bytes(uint64(bytes))
+	c.String(http.StatusAccepted, "mail sent: %s", humanFriendlyBytes)
 }
 
 // deterimeRecipientBodyAndSubject checks if the body starts with a "w " or "W ".

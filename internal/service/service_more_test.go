@@ -170,7 +170,8 @@ func TestReadingListValidationAndListing(t *testing.T) {
 
 func TestSendMailValidationAndQueueing(t *testing.T) {
 	disabledSvc := New(repository.NewMemoryStore(), mailer.DisabledSender{}, config.Config{})
-	if err := disabledSvc.SendMail(context.Background(), SendMailInput{}); !errors.Is(err, ErrDisabledMailer) {
+	_, err := disabledSvc.SendMail(context.Background(), SendMailInput{})
+	if !errors.Is(err, ErrDisabledMailer) {
 		t.Fatalf("SendMail(disabled) error = %v, want %v", err, ErrDisabledMailer)
 	}
 
@@ -181,19 +182,23 @@ func TestSendMailValidationAndQueueing(t *testing.T) {
 		done:      make(chan struct{}),
 	}
 
-	if err := svc.SendMail(context.Background(), SendMailInput{}); !errors.Is(err, ErrInvalidMailInput) {
+	_, err = svc.SendMail(context.Background(), SendMailInput{})
+	if !errors.Is(err, ErrInvalidMailInput) {
 		t.Fatalf("SendMail(empty) error = %v, want %v", err, ErrInvalidMailInput)
 	}
 
-	if err := svc.SendMail(context.Background(), SendMailInput{To: "not-an-email", Subject: "s", Body: "b"}); !errors.Is(err, ErrInvalidMailInput) {
+	_, err = svc.SendMail(context.Background(), SendMailInput{To: "not-an-email", Subject: "s", Body: "b"})
+	if !errors.Is(err, ErrInvalidMailInput) {
 		t.Fatalf("SendMail(invalid recipient) error = %v, want %v", err, ErrInvalidMailInput)
 	}
 
-	if err := svc.SendMail(context.Background(), SendMailInput{To: "person@example.com", Subject: "s", Body: "body"}); err != nil {
+	_, err = svc.SendMail(context.Background(), SendMailInput{To: "person@example.com", Subject: "s", Body: "body"})
+	if err != nil {
 		t.Fatalf("SendMail(valid) error = %v", err)
 	}
 
-	if err := svc.SendMail(context.Background(), SendMailInput{To: "person@example.com", Subject: "s", Body: "body"}); !errors.Is(err, ErrMailQueueFull) {
+	_, err = svc.SendMail(context.Background(), SendMailInput{To: "person@example.com", Subject: "s", Body: "body"})
+	if !errors.Is(err, ErrMailQueueFull) {
 		t.Fatalf("SendMail(full queue) error = %v, want %v", err, ErrMailQueueFull)
 	}
 }
@@ -208,11 +213,12 @@ func TestStartMailWorkerDrainsQueuedMessages(t *testing.T) {
 	}
 
 	svc.StartMailWorker()
-	if err := svc.SendMail(context.Background(), SendMailInput{
+	_, err := svc.SendMail(context.Background(), SendMailInput{
 		To:      "person@example.com",
 		Subject: "Queued",
 		Body:    "body",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("SendMail() error = %v", err)
 	}
 

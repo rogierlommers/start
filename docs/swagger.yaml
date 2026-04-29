@@ -116,11 +116,6 @@ definitions:
       status:
         type: string
     type: object
-  httpapi.sendMailResponse:
-    properties:
-      status:
-        type: string
-    type: object
   httpapi.storageFileResponse:
     properties:
       content_type:
@@ -514,20 +509,14 @@ paths:
         name: attachments
         type: file
       produces:
-      - application/json
+      - text/plain
       responses:
         "202":
-          description: Accepted
-          schema:
-            $ref: '#/definitions/httpapi.sendMailResponse'
+          description: Mail accepted for sending
         "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/httpapi.apiErrorResponse'
+          description: Bad request
         "503":
-          description: Service Unavailable
-          schema:
-            $ref: '#/definitions/httpapi.apiErrorResponse'
+          description: Service unavailable
       security:
       - ApiBasicAuth: []
       summary: Send email message with optional attachments

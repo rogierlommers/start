@@ -29,23 +29,24 @@ type SendMailInput struct {
 	Attachments []SendMailAttachment
 }
 
-func (s *Service) SendMail(ctx context.Context, in SendMailInput) error {
+func (s *Service) SendMail(ctx context.Context, in SendMailInput) (int, error) {
 	// Check if mailer is disabled
 	if _, ok := s.mailer.(mailer.DisabledSender); ok {
-		return ErrDisabledMailer
+		return 0, ErrDisabledMailer
 	}
 
 	if in.To == "" || in.Subject == "" || in.Body == "" {
 		logrus.Error("invalid mail input: missing required fields")
-		return ErrInvalidMailInput
+		return 0, ErrInvalidMailInput
 	}
 
 	if _, err := mail.ParseAddress(in.To); err != nil {
-		return fmt.Errorf("%w: invalid recipient", ErrInvalidMailInput)
+		return 0, fmt.Errorf("%w: invalid recipient", ErrInvalidMailInput)
 	}
 
 	// Convert service attachments to mailer attachments
 	attachments := make([]mailer.Attachment, len(in.Attachments))
+	var attachmentBytes int
 	for i, att := range in.Attachments {
 		// skip attachment if filename equals body text (common when using Apple Shortcuts to
 		// send mail with a single attachment, where the filename is used as the body text and
@@ -54,11 +55,15 @@ func (s *Service) SendMail(ctx context.Context, in SendMailInput) error {
 			continue
 		}
 
+		attachmentBytes += len(att.Data)
 		attachments[i] = mailer.Attachment{
 			Filename: att.Filename,
 			Data:     att.Data,
 		}
 	}
+
+	// Calculate total byte count
+	totalBytes := len(in.To) + len(in.Subject) + len(in.Body) + attachmentBytes
 
 	// Queue the mail task (non-blocking) instead of sending directly
 	task := mailTask{
@@ -73,13 +78,13 @@ func (s *Service) SendMail(ctx context.Context, in SendMailInput) error {
 	select {
 	case s.mailQueue <- task:
 		// Task queued successfully
-		return nil
+		return totalBytes, nil
 	case <-ctx.Done():
 		// Request context cancelled while queuing
-		return ctx.Err()
+		return 0, ctx.Err()
 	default:
 		// Queue is full; reject the request to apply backpressure
-		return ErrMailQueueFull
+		return 0, ErrMailQueueFull
 	}
 }
 
