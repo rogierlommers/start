@@ -162,8 +162,23 @@ func (s *Service) OpenStorageFile(ctx context.Context, filename string) (OpenedS
 		uploadDir = "uploads"
 	}
 
-	fullPath := filepath.Join(uploadDir, cleanName)
-	f, err := os.Open(fullPath)
+	baseDirAbs, err := filepath.Abs(uploadDir)
+	if err != nil {
+		return OpenedStorageFile{}, fmt.Errorf("resolve storage directory: %w", err)
+	}
+
+	fullPath := filepath.Join(baseDirAbs, cleanName)
+	fullPathAbs, err := filepath.Abs(fullPath)
+	if err != nil {
+		return OpenedStorageFile{}, fmt.Errorf("resolve storage file path: %w", err)
+	}
+
+	rel, err := filepath.Rel(baseDirAbs, fullPathAbs)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return OpenedStorageFile{}, ErrInvalidStorageInput
+	}
+
+	f, err := os.Open(fullPathAbs)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return OpenedStorageFile{}, ErrStorageNotFound
@@ -185,7 +200,7 @@ func (s *Service) OpenStorageFile(ctx context.Context, filename string) (OpenedS
 	return OpenedStorageFile{
 		StoredFile: StoredFile{
 			Filename:    cleanName,
-			Path:        filepath.ToSlash(fullPath),
+			Path:        filepath.ToSlash(fullPathAbs),
 			Size:        info.Size(),
 			ContentType: detectStorageContentType(cleanName),
 			UploadedAt:  info.ModTime().UTC(),
@@ -217,6 +232,10 @@ func validateRequestedStorageFilename(name string) (string, error) {
 	}
 
 	if strings.Contains(trimmed, "/") || strings.Contains(trimmed, "\\") {
+		return "", ErrInvalidStorageInput
+	}
+
+	if trimmed == "." || trimmed == ".." {
 		return "", ErrInvalidStorageInput
 	}
 
