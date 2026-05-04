@@ -203,3 +203,27 @@ func authSessionToken(t *testing.T, auth *httpmiddleware.GUIAuth) string {
 
 	return nameValue[1]
 }
+
+func TestAppHomeBookmarkLinksStayInSameTab(t *testing.T) {
+	t.Helper()
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	Register(router, nil, "2026-05-04T00:00:00Z")
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, `<a href="${escAttr(bm.url)}"`) {
+		t.Fatalf("home page missing bookmark link template: %q", body)
+	}
+	if strings.Contains(body, `<a href="${escAttr(bm.url)}" target="_blank"`) {
+		t.Fatalf("home page bookmark links still open in a new tab: %q", body)
+	}
+}

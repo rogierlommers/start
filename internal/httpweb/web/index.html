@@ -602,7 +602,7 @@
         viewDiv.className = 'flex flex-col gap-1'
         viewDiv.innerHTML = `
           <div class="flex items-center gap-2">
-            <a href="${escAttr(bm.url)}" target="_blank" rel="noopener noreferrer"
+            <a href="${escAttr(bm.url)}"
                class="text-indigo-600 hover:underline truncate text-sm flex-1 ${bm.hidden ? 'line-through' : ''}">${escHtml(bm.title || bm.url)}</a>
             <button data-move-up="${bm.id}"
               class="text-xs text-gray-400 hover:text-indigo-600 transition-colors shrink-0 px-1" title="Move up">↑</button>
