@@ -209,7 +209,7 @@ func TestAppHomeBookmarkLinksStayInSameTab(t *testing.T) {
 
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	Register(router, nil, "2026-05-04T00:00:00Z")
+	Register(router, nil, "2026-05-04T00:00:00Z", "")
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
@@ -225,5 +225,30 @@ func TestAppHomeBookmarkLinksStayInSameTab(t *testing.T) {
 	}
 	if strings.Contains(body, `<a href="${escAttr(bm.url)}" target="_blank"`) {
 		t.Fatalf("home page bookmark links still open in a new tab: %q", body)
+	}
+}
+
+func TestAppHomeIncludesStorageSecretKeyForGUIFileLinks(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	Register(router, nil, "2026-05-04T00:00:00Z", "shared-secret")
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, `data-storage-secret-key="shared-secret"`) {
+		t.Fatalf("home page missing storage secret key data attribute: %q", body)
+	}
+	if !strings.Contains(body, `secret-key=${encodeURIComponent(storageSecretKey)}`) {
+		t.Fatalf("home page missing storage secret link template: %q", body)
+	}
+	if !strings.Contains(body, `const storageSecretKey = storagePanel?.dataset.storageSecretKey?.trim() || ''`) {
+		t.Fatalf("home page missing storage secret key reader: %q", body)
 	}
 }

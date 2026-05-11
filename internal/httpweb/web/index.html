@@ -143,7 +143,7 @@
       </section>
 
       <!-- ── Storage ───────────────────────────────────────────── -->
-      <section id="tab-storage" class="tab-panel bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+      <section id="tab-storage" data-storage-secret-key="{{ .StorageSecretKey }}" class="tab-panel bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
         <h2 class="text-base font-semibold mb-4">Storage</h2>
 
         <!-- Upload -->
@@ -436,6 +436,9 @@
 
       // ── Storage ───────────────────────────────────────────────
 
+      const storagePanel = document.getElementById('tab-storage')
+      const storageSecretKey = storagePanel?.dataset.storageSecretKey?.trim() || ''
+
       async function loadStorageFiles() {
         const list = document.getElementById('storage-list')
         try {
@@ -446,6 +449,10 @@
           }
           list.innerHTML = files.map(f => {
             const fileUrl = `/api/storage/files/${encodeURIComponent(f.filename)}`
+            const secretFileUrl = storageSecretKey
+              ? `${fileUrl}?secret-key=${encodeURIComponent(storageSecretKey)}`
+              : ''
+            const absoluteSecretFileUrl = secretFileUrl ? new URL(secretFileUrl, window.location.origin).toString() : ''
             const preview = isImageFile(f)
               ? `<img src="${fileUrl}" alt="" loading="lazy" class="h-[100px] w-[100px] rounded border border-gray-200 object-cover shrink-0 bg-white" />`
               : (() => {
@@ -465,6 +472,10 @@
                      target="_blank"
                      class="truncate text-emerald-600 hover:underline text-xs font-mono block"
                      title="${escHtml(f.filename)}">${escHtml(f.filename)}</a>
+                  ${absoluteSecretFileUrl ? `<a href="${escAttr(absoluteSecretFileUrl)}"
+                    target="_blank"
+                    class="truncate text-[11px] text-gray-500 hover:text-emerald-600 hover:underline font-mono block"
+                    title="${escAttr(absoluteSecretFileUrl)}">${escHtml(absoluteSecretFileUrl)}</a>` : ''}
                   <span class="text-[11px] text-gray-400">Uploaded: ${escHtml(fmtDateTime(f.uploaded_at))}</span>
                 </div>
               </div>

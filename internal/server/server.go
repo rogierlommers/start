@@ -81,7 +81,7 @@ func NewHTTPServer(cfg config.Config, appBuildTime string) (*ServerContext, erro
 
 	// register API and web handlers
 	httpapi.Register(protected, svc, cfg)
-	httpweb.Register(protected, svc, appBuildTime)
+	httpweb.Register(protected, svc, appBuildTime, cfg.StorageSecretKey)
 
 	return &ServerContext{
 		Server: &http.Server{
