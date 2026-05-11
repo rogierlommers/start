@@ -122,6 +122,52 @@ func TestRequireAuthAllowsValidAPIBasicAuth(t *testing.T) {
 	}
 }
 
+func TestRequireAuthAllowsStorageDownloadWithSecretKey(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	auth := &GUIAuth{
+		enabled:          true,
+		storageSecretKey: "shared-secret",
+		secret:           []byte("01234567890123456789012345678901"),
+	}
+
+	router := gin.New()
+	router.Use(auth.RequireAuth())
+	router.GET("/api/storage/files/:filename", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/storage/files/sample.txt?secret-key=shared-secret", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestRequireAuthRejectsStorageDownloadWithInvalidSecretKey(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	auth := &GUIAuth{
+		enabled:          true,
+		storageSecretKey: "shared-secret",
+		secret:           []byte("01234567890123456789012345678901"),
+	}
+
+	router := gin.New()
+	router.Use(auth.RequireAuth())
+	router.GET("/api/storage/files/:filename", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/storage/files/sample.txt?secret-key=wrong-secret", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
 func TestNewGUIAuthUsesConfiguredSessionSecret(t *testing.T) {
 	auth, err := NewGUIAuth(config.Config{
 		GUIUsername:      "user",

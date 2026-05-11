@@ -225,6 +225,7 @@ func (h handlers) listStorageFiles(c *gin.Context) {
 // @Produce application/octet-stream
 // @Security ApiBasicAuth
 // @Param filename path string true "Stored filename"
+// @Param secret-key query string false "Alternative auth key for file downloads"
 // @Success 200 {file} file
 // @Failure 400 {object} apiErrorResponse
 // @Failure 404 {object} apiErrorResponse

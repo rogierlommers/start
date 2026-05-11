@@ -650,6 +650,10 @@ paths:
         name: filename
         required: true
         type: string
+      - description: Alternative auth key for file downloads
+        in: query
+        name: secret-key
+        type: string
       produces:
       - application/octet-stream
       responses:

@@ -24,6 +24,7 @@ type Config struct {
 	LogLevel               string
 	SQLitePath             string
 	StorageUploadDir       string
+	StorageSecretKey       string
 	StorageMaxUploadMB     int64
 	StorageCleanupDays     int
 	ReadingListCleanupDays int
@@ -67,6 +68,7 @@ func Load() (Config, error) {
 
 		// storage settings
 		StorageUploadDir:       os.Getenv("STORAGE_UPLOAD_DIR"),
+		StorageSecretKey:       os.Getenv("STORAGE_SECRET_KEY"),
 		StorageMaxUploadMB:     100, // default max upload size of 100 MB
 		StorageCleanupDays:     30,
 		ReadingListCleanupDays: 30,

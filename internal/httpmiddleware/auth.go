@@ -25,12 +25,13 @@ const (
 
 // GUIAuth provides cookie-backed authentication for the dashboard and API.
 type GUIAuth struct {
-	enabled  bool
-	username string
-	password string
-	apiUser  string
-	apiPass  string
-	secret   []byte
+	enabled          bool
+	username         string
+	password         string
+	apiUser          string
+	apiPass          string
+	storageSecretKey string
+	secret           []byte
 }
 
 // NewGUIAuth builds a GUI auth helper from runtime configuration.
@@ -48,12 +49,13 @@ func NewGUIAuth(cfg config.Config) (*GUIAuth, error) {
 	}
 
 	return &GUIAuth{
-		enabled:  true,
-		username: username,
-		password: password,
-		apiUser:  strings.TrimSpace(cfg.APIUsername),
-		apiPass:  cfg.APIPassword,
-		secret:   secret,
+		enabled:          true,
+		username:         username,
+		password:         password,
+		apiUser:          strings.TrimSpace(cfg.APIUsername),
+		apiPass:          cfg.APIPassword,
+		storageSecretKey: strings.TrimSpace(cfg.StorageSecretKey),
+		secret:           secret,
 	}, nil
 }
 
@@ -145,6 +147,11 @@ func (a *GUIAuth) RequireAuth() gin.HandlerFunc {
 			return
 		}
 
+		if a.isStorageSecretAuthorized(c.Request) {
+			c.Next()
+			return
+		}
+
 		if expectsHTML(c.Request) {
 			c.Redirect(http.StatusSeeOther, a.LoginURL(c.Request.URL.RequestURI()))
 			c.Abort()
@@ -212,6 +219,31 @@ func (a *GUIAuth) isAPIBasicAuthorized(r *http.Request) bool {
 
 	return hmac.Equal([]byte(strings.TrimSpace(username)), []byte(a.apiUser)) &&
 		hmac.Equal([]byte(password), []byte(a.apiPass))
+}
+
+func (a *GUIAuth) isStorageSecretAuthorized(r *http.Request) bool {
+	if !a.Enabled() {
+		return false
+	}
+
+	if r.Method != http.MethodGet {
+		return false
+	}
+
+	if !strings.HasPrefix(r.URL.Path, "/api/storage/files/") || r.URL.Path == "/api/storage/files/" {
+		return false
+	}
+
+	if strings.TrimSpace(a.storageSecretKey) == "" {
+		return false
+	}
+
+	providedKey := strings.TrimSpace(r.URL.Query().Get("secret-key"))
+	if providedKey == "" {
+		return false
+	}
+
+	return hmac.Equal([]byte(providedKey), []byte(a.storageSecretKey))
 }
 
 func (a *GUIAuth) sessionToken() string {
