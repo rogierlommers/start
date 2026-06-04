@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 var ErrDisabled = errors.New("mailer is not configured")
@@ -60,6 +62,11 @@ func NewSMTPSender(host string, port int, username, password, from string) *SMTP
 func (s *SMTPSender) Send(ctx context.Context, msg Message) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
+	}
+
+	// dump all attchments
+	for _, att := range msg.Attachments {
+		logrus.Infof("attachment: filename=%s, size=%d bytes", att.Filename, len(att.Data))
 	}
 
 	if _, err := mail.ParseAddress(msg.To); err != nil {
