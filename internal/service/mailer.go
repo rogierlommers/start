@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/mail"
+	"strings"
 
 	"start/internal/mailer"
 
@@ -45,9 +46,14 @@ func (s *Service) SendMail(ctx context.Context, in SendMailInput) (int, error) {
 	}
 
 	// Convert service attachments to mailer attachments
-	attachments := make([]mailer.Attachment, len(in.Attachments))
+	var attachments []mailer.Attachment
 	var attachmentBytes int
-	for i, att := range in.Attachments {
+	for _, att := range in.Attachments {
+		// skip attachment if filename is empty
+		if strings.TrimSpace(att.Filename) == "" {
+			continue
+		}
+
 		// skip attachment if filename equals body text (common when using Apple Shortcuts to
 		// send mail with a single attachment, where the filename is used as the body text and
 		// the actual attachment data is empty)
@@ -56,10 +62,10 @@ func (s *Service) SendMail(ctx context.Context, in SendMailInput) (int, error) {
 		}
 
 		attachmentBytes += len(att.Data)
-		attachments[i] = mailer.Attachment{
+		attachments = append(attachments, mailer.Attachment{
 			Filename: att.Filename,
 			Data:     att.Data,
-		}
+		})
 	}
 
 	// Calculate total byte count

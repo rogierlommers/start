@@ -129,7 +129,7 @@ func deterimeRecipientBodyAndSubject(cfg config.Config, body string) (string, st
 	cleanBody := strings.TrimSpace(trimmedLeft)
 	subject := deriveSubject(cleanBody)
 
-	logrus.Infof("determined recipient '%s' and subject '%s' from body prefix", recipient, subject)
+	logrus.Debugf("determined recipient '%s' and subject '%s' from body prefix", recipient, subject)
 	return recipient, cleanBody, subject
 }
 
