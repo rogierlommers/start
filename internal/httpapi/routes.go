@@ -23,6 +23,11 @@ func RegisterPublic(router gin.IRouter, svc *service.Service, cfg config.Config)
 	router.GET("/api/health", h.health)
 	router.GET("/api/reading-list/bookmarklet-input", h.addReadingListItemFromBookmarklet)
 	router.GET("/api/reading-list/rss", h.getReadingListRSS)
+
+	// temporary for bimcollab testing
+	router.GET("/api/bimcollab-callback", h.callBack)
+	router.POST("/api/bimcollab-callback", h.callBack)
+	router.PUT("/api/bimcollab-callback", h.callBack)
 }
 
 // Register registers JSON API routes.

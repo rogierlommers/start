@@ -195,6 +195,46 @@ info:
   title: start API
   version: 0.1.0
 paths:
+  /api/bimcollab-callback:
+    get:
+      description: Emails a report containing all incoming request headers and the
+        request body to the configured private address.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.healthResponse'
+      summary: Receive a callback and email a report of the incoming request
+      tags:
+      - bimcollab
+    post:
+      description: Emails a report containing all incoming request headers and the
+        request body to the configured private address.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.healthResponse'
+      summary: Receive a callback and email a report of the incoming request
+      tags:
+      - bimcollab
+    put:
+      description: Emails a report containing all incoming request headers and the
+        request body to the configured private address.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.healthResponse'
+      summary: Receive a callback and email a report of the incoming request
+      tags:
+      - bimcollab
   /api/bookmarks:
     get:
       produces:
