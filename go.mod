@@ -7,8 +7,8 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/gin-gonic/gin v1.12.0
 	github.com/joho/godotenv v1.5.1
-	github.com/sirupsen/logrus v1.10.1
-	modernc.org/sqlite v1.56.0
+	github.com/sirupsen/logrus v1.10.0
+	modernc.org/sqlite v1.57.0
 )
 
 require (
