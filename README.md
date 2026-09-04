@@ -115,15 +115,14 @@ Reading-list endpoints:
 - `POST /api/reading-list/items`
 - `GET /api/reading-list/items`
 - `GET /api/reading-list/rss`
-- `GET /api/reading-list/bookmarklet-input?url={encodedUrl}&return_to={encodedUrl}`
+- `GET /api/reading-list/bookmarklet-input?url={encodedUrl}`
 
 Reading-list cleanup environment variables:
 
 - `READING_LIST_CLEANUP_DAYS` (optional, defaults to `30`; set to `0` to disable scheduled cleanup)
 
-The bookmarklet endpoint adds the incoming `url` as a new reading-list item.
-If `return_to` is provided, it redirects back to that URL after saving.
+The bookmarklet endpoint adds the incoming `url` as a new reading-list item and displays a confirmation page with the saved site's details. It does not redirect to the saved site.
 
 Bookmarklet one-liner:
 
-`javascript:(()=>{const cur=location.href;location.href='http://127.0.0.1:3000/api/reading-list/bookmarklet-input?url='+encodeURIComponent(cur)+'&return_to='+encodeURIComponent(cur)+'&_='+Date.now()})()`
+`javascript:(()=>{const cur=location.href;location.href='http://127.0.0.1:3000/api/reading-list/bookmarklet-input?url='+encodeURIComponent(cur)+'&_='+Date.now()})()`

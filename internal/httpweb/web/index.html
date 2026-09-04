@@ -542,7 +542,7 @@
         if (!link) return
 
         const apiBase = window.location.origin
-        const bookmarklet = `javascript:(()=>{const cur=location.href;location.href='${apiBase}/api/reading-list/bookmarklet-input?url='+encodeURIComponent(cur)+'&return_to='+encodeURIComponent(cur)+'&_='+Date.now()})()`
+        const bookmarklet = `javascript:(()=>{const cur=location.href;location.href='${apiBase}/api/reading-list/bookmarklet-input?url='+encodeURIComponent(cur)+'&_='+Date.now()})()`
         link.setAttribute('href', bookmarklet)
       }
 

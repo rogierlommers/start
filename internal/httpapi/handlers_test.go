@@ -189,11 +189,19 @@ func TestReadingListHandlersAndRSS(t *testing.T) {
 	}
 
 	rec = performJSONRequest(router, http.MethodGet, "/api/reading-list/bookmarklet-input?url='https://example.net'&return_to=https://reader.example.net/back", "")
-	if rec.Code != http.StatusSeeOther {
-		t.Fatalf("bookmarklet redirect status = %d, want %d body=%q", rec.Code, http.StatusSeeOther, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("bookmarklet confirmation status = %d, want %d body=%q", rec.Code, http.StatusOK, rec.Body.String())
 	}
-	if got := rec.Header().Get("Location"); !strings.Contains(got, "reading_list_saved=1") {
-		t.Fatalf("bookmarklet redirect location = %q, want reading_list_saved marker", got)
+	if got := rec.Header().Get("Location"); got != "" {
+		t.Fatalf("bookmarklet confirmation location = %q, want no redirect", got)
+	}
+	if got := rec.Header().Get("Content-Type"); !strings.HasPrefix(got, "text/html") {
+		t.Fatalf("bookmarklet confirmation content type = %q, want text/html", got)
+	}
+	for _, want := range []string{"Saved to your reading list", "example.net", "https://example.net", "Open saved page"} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Fatalf("bookmarklet confirmation body = %q, want %q", rec.Body.String(), want)
+		}
 	}
 }
 

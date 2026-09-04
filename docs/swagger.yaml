@@ -570,19 +570,11 @@ paths:
         name: url
         required: true
         type: string
-      - description: Optional URL to redirect back to after save
-        in: query
-        name: return_to
-        type: string
       produces:
-      - application/json
+      - text/html
       responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/httpapi.readingListItemResponse'
-        "303":
-          description: Redirect back to return_to
+        "200":
+          description: Saved-item confirmation page
           schema:
             type: string
         "400":

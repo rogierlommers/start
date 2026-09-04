@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/xml"
 	"errors"
+	"html/template"
 	"net/http"
 	"net/url"
 	"strings"
@@ -48,6 +49,60 @@ type rssItem struct {
 type rssGUID struct {
 	IsPermaLink bool   `xml:"isPermaLink,attr"`
 	Value       string `xml:",chardata"`
+}
+
+var readingListSavedPage = template.Must(template.New("reading-list-saved").Parse(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Saved to your reading list</title>
+  <style>
+    :root { color-scheme: light dark; font-family: ui-sans-serif, system-ui, sans-serif; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f4f1eb; color: #25231f; }
+    main { box-sizing: border-box; width: min(92vw, 600px); padding: clamp(2rem, 8vw, 4rem); background: #fffdf9; border: 1px solid #ded8cf; border-radius: 24px; box-shadow: 0 18px 60px #5147351f; }
+    .check { color: #28724f; font-size: 2rem; line-height: 1; }
+    h1 { margin: 1rem 0 .6rem; font-size: clamp(1.8rem, 5vw, 2.6rem); letter-spacing: -.04em; }
+    p { color: #6b655c; line-height: 1.6; }
+    dl { margin: 2rem 0; padding: 1.25rem; background: #f4f1eb; border-radius: 14px; }
+    dt { margin-top: 1rem; color: #81796e; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    dt:first-child { margin-top: 0; }
+    dd { margin: .35rem 0 0; overflow-wrap: anywhere; }
+    a { color: #2868a5; }
+    .button { display: inline-block; padding: .8rem 1.1rem; border-radius: 10px; background: #2868a5; color: white; text-decoration: none; font-weight: 700; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1f211f; color: #f5f1e9; }
+      main { background: #292b28; border-color: #454740; box-shadow: none; }
+      p, dt { color: #b8b3a9; }
+      dl { background: #20221f; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="check" aria-hidden="true">&#10003;</div>
+    <h1>Saved to your reading list</h1>
+    <p>This page was saved successfully. You can keep browsing here or open it when you are ready.</p>
+    <dl>
+      <dt>Title</dt>
+      <dd>{{ .Title }}</dd>
+      <dt>Site</dt>
+      <dd>{{ .Host }}</dd>
+      <dt>Saved</dt>
+      <dd>{{ .SavedAt }}</dd>
+      <dt>Address</dt>
+      <dd><a href="{{ .URL }}">{{ .URL }}</a></dd>
+    </dl>
+    <a class="button" href="{{ .URL }}">Open saved page</a>
+  </main>
+</body>
+</html>`))
+
+type readingListSavedPageData struct {
+	Title   string
+	Host    string
+	URL     string
+	SavedAt string
 }
 
 func readingListItemToResponse(item service.ReadingListItem) readingListItemResponse {
@@ -98,15 +153,14 @@ func (h handlers) addReadingListItem(c *gin.Context) {
 // @Tags reading-list
 // @Produce json
 // @Param url query string true "URL to add"
-// @Param return_to query string false "Optional URL to redirect back to after save"
+// @Param return_to query string false "Deprecated; accepted for bookmarklet compatibility"
 // @Success 201 {object} readingListItemResponse
-// @Success 303 {string} string "Redirect back to return_to"
+// @Success 200 {string} string "Saved-item confirmation page"
 // @Failure 400 {object} apiErrorResponse
 // @Failure 500 {object} apiErrorResponse
 // @Router /api/reading-list/bookmarklet-input [get]
 func (h handlers) addReadingListItemFromBookmarklet(c *gin.Context) {
 	rawURL := strings.TrimSpace(c.Query("url"))
-	returnTo := strings.TrimSpace(c.Query("return_to"))
 	if rawURL == "" {
 		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "url query parameter is required"})
 		return
@@ -125,21 +179,21 @@ func (h handlers) addReadingListItemFromBookmarklet(c *gin.Context) {
 		return
 	}
 
-	if returnTo != "" {
-		target, err := url.Parse(returnTo)
-		if err != nil || !target.IsAbs() || (target.Scheme != "http" && target.Scheme != "https") {
-			c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "return_to must be an absolute http or https URL"})
-			return
-		}
-
-		q := target.Query()
-		q.Set("reading_list_saved", "1")
-		target.RawQuery = q.Encode()
-		c.Redirect(http.StatusSeeOther, target.String())
+	parsed, _ := url.Parse(item.URL)
+	title := strings.TrimSpace(item.Title)
+	if title == "" {
+		title = parsed.Host
+	}
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	if err := readingListSavedPage.Execute(c.Writer, readingListSavedPageData{
+		Title:   title,
+		Host:    parsed.Host,
+		URL:     item.URL,
+		SavedAt: item.CreatedAt.Format("2 January 2006, 15:04 MST"),
+	}); err != nil {
+		// The template is static and parsed at startup; this is only a defensive response.
 		return
 	}
-
-	c.JSON(http.StatusCreated, readingListItemToResponse(item))
 }
 
 // listReadingListItems godoc
