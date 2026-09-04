@@ -2,8 +2,10 @@ package httpapi
 
 import (
 	"crypto/sha256"
+	"encoding/csv"
 	"encoding/hex"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -41,6 +43,14 @@ type createBookmarkRequest struct {
 	CategoryID int64  `json:"category_id"     binding:"required"`
 }
 
+type bookmarkCSVRequest struct {
+	Content string `json:"content"`
+}
+
+type bookmarkCSVResponse struct {
+	Content string `json:"content"`
+}
+
 type updateBookmarkRequest struct {
 	URL        string `json:"url"             binding:"required"`
 	Title      string `json:"title"`
@@ -66,7 +76,7 @@ type alfredCacheResponse struct {
 
 type alfredBookmarkItemResponse struct {
 	UID   string `json:"uid"`
-	ID    int64  `json:"id"`
+	ID    int64  `json:"id,omitempty"`
 	Title string `json:"title"`
 	Arg   string `json:"arg"`
 }
@@ -172,6 +182,50 @@ func (h handlers) listBookmarks(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+// getBookmarkCSV godoc
+// @Summary Get additional bookmark CSV text
+// @Tags bookmarks
+// @Produce json
+// @Security ApiBasicAuth
+// @Success 200 {object} bookmarkCSVResponse
+// @Failure 500 {object} apiErrorResponse
+// @Router /api/bookmark-csv [get]
+func (h handlers) getBookmarkCSV(c *gin.Context) {
+	content, err := h.svc.GetBookmarkCSV(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, apiErrorResponse{Error: "failed to get bookmark CSV"})
+		return
+	}
+
+	c.JSON(http.StatusOK, bookmarkCSVResponse{Content: content})
+}
+
+// saveBookmarkCSV godoc
+// @Summary Save additional bookmark CSV text
+// @Tags bookmarks
+// @Accept json
+// @Produce json
+// @Security ApiBasicAuth
+// @Param request body bookmarkCSVRequest true "Bookmark CSV payload"
+// @Success 200 {object} bookmarkCSVResponse
+// @Failure 400 {object} apiErrorResponse
+// @Failure 500 {object} apiErrorResponse
+// @Router /api/bookmark-csv [put]
+func (h handlers) saveBookmarkCSV(c *gin.Context) {
+	var req bookmarkCSVRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid JSON body"})
+		return
+	}
+
+	if err := h.svc.SaveBookmarkCSV(c.Request.Context(), req.Content); err != nil {
+		c.JSON(http.StatusInternalServerError, apiErrorResponse{Error: "failed to save bookmark CSV"})
+		return
+	}
+
+	c.JSON(http.StatusOK, bookmarkCSVResponse{Content: req.Content})
+}
+
 // listBookmarksAlfred godoc
 // @Summary List bookmarks in Alfred workflow format
 // @Tags bookmarks
@@ -209,10 +263,51 @@ func (h handlers) listBookmarksAlfred(c *gin.Context) {
 		})
 	}
 
+	content, err := h.svc.GetBookmarkCSV(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, apiErrorResponse{Error: "failed to get bookmark CSV"})
+		return
+	}
+	items = append(items, alfredBookmarkCSVItems(content)...)
+
 	c.JSON(http.StatusOK, alfredBookmarksResponse{
 		Cache: alfredCacheResponse{Seconds: 3600},
 		Items: items,
 	})
+}
+
+func alfredBookmarkCSVItems(content string) []alfredBookmarkItemResponse {
+	reader := csv.NewReader(strings.NewReader(content))
+	reader.Comment = '#'
+	reader.FieldsPerRecord = 2
+
+	items := make([]alfredBookmarkItemResponse, 0)
+	for {
+		record, err := reader.Read()
+		if errors.Is(err, io.EOF) {
+			return items
+		}
+		if err != nil {
+			return items
+		}
+
+		tag := strings.TrimSpace(record[0])
+		url := strings.TrimSpace(record[1])
+		if url == "" {
+			continue
+		}
+
+		title := url
+		if tag != "" {
+			title = tag + " - " + url
+		}
+		sum := sha256.Sum256([]byte("bookmark-csv\x00" + tag + "\x00" + url))
+		items = append(items, alfredBookmarkItemResponse{
+			UID:   hex.EncodeToString(sum[:]),
+			Title: title,
+			Arg:   url,
+		})
+	}
 }
 
 // createBookmark godoc

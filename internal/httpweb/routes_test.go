@@ -228,6 +228,34 @@ func TestAppHomeBookmarkLinksStayInSameTab(t *testing.T) {
 	}
 }
 
+func TestAppHomeIncludesBookmarkCSVImport(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	Register(router, nil, "2026-05-04T00:00:00Z", "")
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	body := rec.Body.String()
+	for _, want := range []string{
+		`id="bookmark-csv-form"`,
+		`id="bookmark-csv"`,
+		`placeholder="&quot;tag1 tag2 tag3&quot;,&quot;http://www.google.com&quot;"`,
+		`Changes here do not affect bookmarks above.`,
+		`async function loadBookmarkCSV()`,
+		`await apiFetch('/api/bookmark-csv', {`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("home page missing bookmark CSV import marker %q", want)
+		}
+	}
+}
+
 func TestAppHomeIncludesStorageSecretKeyForGUIFileLinks(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

@@ -182,6 +182,23 @@ func (s *Service) ListBookmarks(ctx context.Context, includeHidden bool) ([]Book
 	return out, nil
 }
 
+func (s *Service) GetBookmarkCSV(ctx context.Context) (string, error) {
+	content, err := s.store.GetBookmarkCSV(ctx)
+	if err != nil {
+		return "", fmt.Errorf("get bookmark CSV: %w", err)
+	}
+
+	return content, nil
+}
+
+func (s *Service) SaveBookmarkCSV(ctx context.Context, content string) error {
+	if err := s.store.SaveBookmarkCSV(ctx, content); err != nil {
+		return fmt.Errorf("save bookmark CSV: %w", err)
+	}
+
+	return nil
+}
+
 func (s *Service) ReorderBookmarks(ctx context.Context, ids []int64) error {
 	if len(ids) == 0 {
 		return fmt.Errorf("%w: ids is required", ErrInvalidBookmarkInput)

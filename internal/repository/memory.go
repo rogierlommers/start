@@ -11,13 +11,14 @@ import (
 
 // MemoryStore is a thread-safe in-memory implementation of Store.
 type MemoryStore struct {
-	mu         sync.RWMutex
-	categories map[int64]Category
-	bookmarks  map[int64]Bookmark
-	reading    map[int64]ReadingListItem
-	nextCatID  int64
-	nextBmkID  int64
-	nextReadID int64
+	mu          sync.RWMutex
+	categories  map[int64]Category
+	bookmarks   map[int64]Bookmark
+	bookmarkCSV string
+	reading     map[int64]ReadingListItem
+	nextCatID   int64
+	nextBmkID   int64
+	nextReadID  int64
 }
 
 func NewMemoryStore() *MemoryStore {
@@ -175,6 +176,21 @@ func (m *MemoryStore) DeleteBookmark(_ context.Context, id int64) error {
 
 	delete(m.bookmarks, id)
 
+	return nil
+}
+
+func (m *MemoryStore) GetBookmarkCSV(_ context.Context) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return m.bookmarkCSV, nil
+}
+
+func (m *MemoryStore) SaveBookmarkCSV(_ context.Context, content string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.bookmarkCSV = content
 	return nil
 }
 

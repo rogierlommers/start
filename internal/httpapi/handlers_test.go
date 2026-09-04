@@ -159,6 +159,59 @@ func TestBookmarkHandlersValidationErrors(t *testing.T) {
 	}
 }
 
+func TestBookmarkCSVHandlersDoNotModifyBookmarks(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router, _ := newAPITestRouter(t)
+
+	if rec := performJSONRequest(router, http.MethodPost, "/api/categories", `{"name":"General"}`); rec.Code != http.StatusCreated {
+		t.Fatalf("create category status = %d, want %d", rec.Code, http.StatusCreated)
+	}
+	if rec := performJSONRequest(router, http.MethodPost, "/api/bookmarks", `{"url":"https://example.com","title":"Example","category_id":1}`); rec.Code != http.StatusCreated {
+		t.Fatalf("create bookmark status = %d, want %d", rec.Code, http.StatusCreated)
+	}
+
+	rec := performJSONRequest(router, http.MethodGet, "/api/bookmark-csv", "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"content":""`) {
+		t.Fatalf("initial bookmark CSV = status %d body %q", rec.Code, rec.Body.String())
+	}
+
+	rec = performJSONRequest(router, http.MethodPut, "/api/bookmark-csv", `{"content":"\"tag1 tag2\",\"https://www.google.com\""}`)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `https://www.google.com`) {
+		t.Fatalf("save bookmark CSV = status %d body %q", rec.Code, rec.Body.String())
+	}
+
+	rec = performJSONRequest(router, http.MethodGet, "/api/bookmark-csv", "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `https://www.google.com`) {
+		t.Fatalf("saved bookmark CSV = status %d body %q", rec.Code, rec.Body.String())
+	}
+
+	rec = performJSONRequest(router, http.MethodGet, "/api/bookmarks", "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "https://example.com") || strings.Contains(rec.Body.String(), "https://www.google.com") {
+		t.Fatalf("bookmarks changed after saving CSV = status %d body %q", rec.Code, rec.Body.String())
+	}
+
+	rec = performJSONRequest(router, http.MethodGet, "/api/bookmarks/alfred", "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"arg":"https://www.google.com"`) || !strings.Contains(rec.Body.String(), `"title":"tag1 tag2 - https://www.google.com"`) {
+		t.Fatalf("alfred response missing bookmark CSV item = status %d body %q", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), `"id":0`) {
+		t.Fatalf("Alfred bookmark CSV item unexpectedly has an ID: %q", rec.Body.String())
+	}
+}
+
+func TestAlfredBookmarkCSVItemsIgnoresCommentsAndEmptyLines(t *testing.T) {
+	items := alfredBookmarkCSVItems("# personal links\n\n\"tag\",\"https://one.example\"\n\n\"other\",\"https://two.example\"")
+	if len(items) != 2 {
+		t.Fatalf("alfredBookmarkCSVItems() len = %d, want 2", len(items))
+	}
+	if items[0].Arg != "https://one.example" || items[0].Title != "tag - https://one.example" {
+		t.Fatalf("alfredBookmarkCSVItems() = %+v", items[0])
+	}
+	if items[1].Arg != "https://two.example" || items[1].Title != "other - https://two.example" {
+		t.Fatalf("alfredBookmarkCSVItems() = %+v", items[1])
+	}
+}
+
 func TestReadingListHandlersAndRSS(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router, _ := newAPITestRouter(t)

@@ -59,4 +59,14 @@ var sqliteMigrations = []sqliteMigration{
 			`ALTER TABLE bookmarks ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'`,
 		},
 	},
+	{
+		version: 3,
+		name:    "add_bookmark_csv",
+		statements: []string{
+			`CREATE TABLE bookmark_csv (
+				id INTEGER PRIMARY KEY CHECK (id = 1),
+				content TEXT NOT NULL DEFAULT ''
+			)`,
+		},
+	},
 }

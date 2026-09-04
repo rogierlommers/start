@@ -39,6 +39,16 @@ definitions:
       error:
         type: string
     type: object
+  httpapi.bookmarkCSVRequest:
+    properties:
+      content:
+        type: string
+    type: object
+  httpapi.bookmarkCSVResponse:
+    properties:
+      content:
+        type: string
+    type: object
   httpapi.bookmarkResponse:
     properties:
       category_id:
@@ -235,6 +245,54 @@ paths:
       summary: Receive a callback and email a report of the incoming request
       tags:
       - bimcollab
+  /api/bookmark-csv:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.bookmarkCSVResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Get additional bookmark CSV text
+      tags:
+      - bookmarks
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bookmark CSV payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.bookmarkCSVRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.bookmarkCSVResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Save additional bookmark CSV text
+      tags:
+      - bookmarks
   /api/bookmarks:
     get:
       produces:
@@ -570,13 +628,21 @@ paths:
         name: url
         required: true
         type: string
+      - description: Deprecated; accepted for bookmarklet compatibility
+        in: query
+        name: return_to
+        type: string
       produces:
-      - text/html
+      - application/json
       responses:
         "200":
           description: Saved-item confirmation page
           schema:
             type: string
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/httpapi.readingListItemResponse'
         "400":
           description: Bad Request
           schema:

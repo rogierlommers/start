@@ -399,6 +399,31 @@ func (s *SQLiteStore) DeleteBookmark(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (s *SQLiteStore) GetBookmarkCSV(ctx context.Context) (string, error) {
+	var content string
+	err := s.db.QueryRowContext(ctx, `SELECT content FROM bookmark_csv WHERE id = 1`).Scan(&content)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("get bookmark CSV: %w", err)
+	}
+
+	return content, nil
+}
+
+func (s *SQLiteStore) SaveBookmarkCSV(ctx context.Context, content string) error {
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO bookmark_csv(id, content) VALUES(1, ?)
+		ON CONFLICT(id) DO UPDATE SET content = excluded.content
+	`, content)
+	if err != nil {
+		return fmt.Errorf("save bookmark CSV: %w", err)
+	}
+
+	return nil
+}
+
 func (s *SQLiteStore) CreateReadingListItem(ctx context.Context, item ReadingListItem) (ReadingListItem, error) {
 	createdAt := time.Now().UTC()
 	res, err := s.db.ExecContext(ctx,

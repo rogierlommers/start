@@ -115,6 +115,43 @@ func TestSQLiteBookmarkLifecycleAndErrors(t *testing.T) {
 	}
 }
 
+func TestSQLiteBookmarkCSVPersistsIndependently(t *testing.T) {
+	store := mustNewSQLiteStore(t)
+	ctx := context.Background()
+
+	content := "\"tag1 tag2\",\"https://www.google.com\"\n\"reference\",\"https://example.com\""
+	if err := store.SaveBookmarkCSV(ctx, content); err != nil {
+		t.Fatalf("SaveBookmarkCSV() error = %v", err)
+	}
+
+	got, err := store.GetBookmarkCSV(ctx)
+	if err != nil {
+		t.Fatalf("GetBookmarkCSV() error = %v", err)
+	}
+	if got != content {
+		t.Fatalf("GetBookmarkCSV() = %q, want %q", got, content)
+	}
+
+	if err := store.SaveBookmarkCSV(ctx, "updated"); err != nil {
+		t.Fatalf("SaveBookmarkCSV(update) error = %v", err)
+	}
+	got, err = store.GetBookmarkCSV(ctx)
+	if err != nil {
+		t.Fatalf("GetBookmarkCSV(updated) error = %v", err)
+	}
+	if got != "updated" {
+		t.Fatalf("GetBookmarkCSV(updated) = %q, want %q", got, "updated")
+	}
+
+	bookmarks, err := store.ListBookmarks(ctx, true)
+	if err != nil {
+		t.Fatalf("ListBookmarks() error = %v", err)
+	}
+	if len(bookmarks) != 0 {
+		t.Fatalf("ListBookmarks() len = %d, want 0", len(bookmarks))
+	}
+}
+
 func TestSQLiteReadingListLifecycle(t *testing.T) {
 	store := mustNewSQLiteStore(t)
 	ctx := context.Background()

@@ -90,7 +90,9 @@ Storage environment variables:
 ## Bookmarks API
 
 - `GET /api/bookmarks`
-- `GET /api/bookmarks/alfred` (Alfred workflow format with `cache.seconds` and `items[]` containing `uid`, `id`, `title`, `arg`; supports `?include_hidden=true`)
+- `GET /api/bookmark-csv` (additional bookmark CSV text)
+- `PUT /api/bookmark-csv` (save additional bookmark CSV text)
+- `GET /api/bookmarks/alfred` (Alfred workflow format with regular bookmarks and valid additional CSV rows; `items[]` contain `uid`, `title`, `arg`, and regular bookmarks also include `id`; supports `?include_hidden=true`)
 - `POST /api/bookmarks`
 - `PATCH /api/bookmarks/{id}`
 - `PATCH /api/bookmarks/{id}/hidden`

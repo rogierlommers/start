@@ -54,6 +54,12 @@ type BookmarkStore interface {
 	DeleteBookmark(ctx context.Context, id int64) error
 }
 
+// BookmarkCSVStore defines persistence operations for the additional bookmark CSV text.
+type BookmarkCSVStore interface {
+	GetBookmarkCSV(ctx context.Context) (string, error)
+	SaveBookmarkCSV(ctx context.Context, content string) error
+}
+
 // ReadingListItem represents a URL saved for later reading.
 type ReadingListItem struct {
 	ID        int64
@@ -73,6 +79,7 @@ type ReadingListStore interface {
 type Store interface {
 	CategoryStore
 	BookmarkStore
+	BookmarkCSVStore
 	ReadingListStore
 }
 
@@ -108,6 +115,14 @@ func (n *NoopStore) ReorderBookmarks(_ context.Context, _ []int64) error {
 }
 
 func (n *NoopStore) DeleteBookmark(_ context.Context, _ int64) error {
+	return nil
+}
+
+func (n *NoopStore) GetBookmarkCSV(_ context.Context) (string, error) {
+	return "", nil
+}
+
+func (n *NoopStore) SaveBookmarkCSV(_ context.Context, _ string) error {
 	return nil
 }
 

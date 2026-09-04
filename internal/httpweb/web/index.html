@@ -189,6 +189,22 @@
         <!-- Bookmark list -->
         <div id="bookmarks-list" class="grid gap-3 text-sm md:grid-cols-2 lg:grid-cols-3 mb-5"></div>
 
+        <!-- Additional bookmark CSV -->
+        <form id="bookmark-csv-form" class="space-y-2 mb-5">
+          <div class="flex items-baseline justify-between gap-3">
+            <label for="bookmark-csv" class="text-sm font-medium text-gray-700">Additional bookmarks as CSV</label>
+            <span class="text-xs text-gray-500">Saved separately from bookmarks</span>
+          </div>
+          <textarea id="bookmark-csv" rows="8" spellcheck="false"
+            placeholder="&quot;tag1 tag2 tag3&quot;,&quot;http://www.google.com&quot;"
+            class="w-full rounded-lg border border-gray-200 px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"></textarea>
+          <p class="text-xs text-gray-500">One link per row: &quot;tags&quot;,&quot;URL&quot;. Changes here do not affect bookmarks above.</p>
+          <button type="submit"
+            class="w-full rounded-lg bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 transition-colors">
+            Save CSV
+          </button>
+        </form>
+
         <!-- Add category -->
         <form id="category-form" class="flex gap-2 mb-4">
           <input id="category-name" type="text" placeholder="New category…"
@@ -755,6 +771,16 @@
         }
       }
 
+      async function loadBookmarkCSV() {
+        const textarea = document.getElementById('bookmark-csv')
+        try {
+          const data = await apiFetch('/api/bookmark-csv')
+          textarea.value = data?.content || ''
+        } catch (err) {
+          toast('Failed to load bookmark CSV: ' + err.message, 'error')
+        }
+      }
+
       document.getElementById('bookmarks-list').onclick = async (e) => {
         const moveUpBtn = e.target.closest('[data-move-up]')
         if (moveUpBtn) {
@@ -921,6 +947,25 @@
         }
       })
 
+      document.getElementById('bookmark-csv-form').addEventListener('submit', async (e) => {
+        e.preventDefault()
+        const submitBtn = e.currentTarget.querySelector('button[type="submit"]')
+        submitBtn.disabled = true
+        try {
+          const content = document.getElementById('bookmark-csv').value
+          await apiFetch('/api/bookmark-csv', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content }),
+          })
+          toast('Bookmark CSV saved')
+        } catch (err) {
+          toast('Failed to save bookmark CSV: ' + err.message, 'error')
+        } finally {
+          submitBtn.disabled = false
+        }
+      })
+
       function normalizeBookmarkTag(value) {
         return String(value || '').trim()
       }
@@ -1015,6 +1060,7 @@
       loadStorageFiles()
       loadReadingListItems()
       loadCategories().then(() => loadBookmarks())
+      loadBookmarkCSV()
     </script>
   </body>
 </html>
