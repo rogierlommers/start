@@ -245,6 +245,7 @@ func TestAppHomeIncludesBookmarkCSVImport(t *testing.T) {
 	for _, want := range []string{
 		`id="bookmark-csv-form"`,
 		`id="bookmark-csv"`,
+		`wrap="off"`,
 		`placeholder="&quot;tag1 tag2 tag3&quot;,&quot;http://www.google.com&quot;"`,
 		`Changes here do not affect bookmarks above.`,
 		`async function loadBookmarkCSV()`,
