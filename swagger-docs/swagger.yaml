@@ -1,0 +1,854 @@
+basePath: /
+definitions:
+  httpapi.addReadingListItemRequest:
+    properties:
+      title:
+        type: string
+      url:
+        type: string
+    required:
+    - url
+    type: object
+  httpapi.alfredBookmarkItemResponse:
+    properties:
+      arg:
+        type: string
+      id:
+        type: integer
+      title:
+        type: string
+      uid:
+        type: string
+    type: object
+  httpapi.alfredBookmarksResponse:
+    properties:
+      cache:
+        $ref: '#/definitions/httpapi.alfredCacheResponse'
+      items:
+        items:
+          $ref: '#/definitions/httpapi.alfredBookmarkItemResponse'
+        type: array
+    type: object
+  httpapi.alfredCacheResponse:
+    properties:
+      seconds:
+        type: integer
+    type: object
+  httpapi.apiErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  httpapi.bookmarkCSVRequest:
+    properties:
+      content:
+        type: string
+    type: object
+  httpapi.bookmarkCSVResponse:
+    properties:
+      content:
+        type: string
+    type: object
+  httpapi.bookmarkResponse:
+    properties:
+      category_id:
+        type: integer
+      created_at:
+        type: string
+      hidden:
+        type: boolean
+      id:
+        type: integer
+      position:
+        type: integer
+      tag:
+        type: string
+      title:
+        type: string
+      url:
+        type: string
+    type: object
+  httpapi.categoryResponse:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  httpapi.createBookmarkRequest:
+    properties:
+      category_id:
+        type: integer
+      tag:
+        type: string
+      title:
+        type: string
+      url:
+        type: string
+    required:
+    - category_id
+    - url
+    type: object
+  httpapi.createCategoryRequest:
+    properties:
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  httpapi.healthResponse:
+    properties:
+      status:
+        type: string
+    type: object
+  httpapi.readingListItemResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      title:
+        type: string
+      url:
+        type: string
+    type: object
+  httpapi.reorderBookmarksRequest:
+    properties:
+      ids:
+        items:
+          type: integer
+        type: array
+    required:
+    - ids
+    type: object
+  httpapi.reorderBookmarksResponse:
+    properties:
+      status:
+        type: string
+    type: object
+  httpapi.storageFileResponse:
+    properties:
+      content_type:
+        type: string
+      filename:
+        type: string
+      path:
+        type: string
+      size:
+        type: integer
+      uploaded_at:
+        type: string
+    type: object
+  httpapi.toggleBookmarkHiddenRequest:
+    properties:
+      hidden:
+        type: boolean
+    type: object
+  httpapi.updateBookmarkRequest:
+    properties:
+      category_id:
+        type: integer
+      tag:
+        type: string
+      title:
+        type: string
+      url:
+        type: string
+    required:
+    - category_id
+    - url
+    type: object
+  httpapi.uploadStorageFileResponse:
+    properties:
+      filename:
+        type: string
+      path:
+        type: string
+      size:
+        type: integer
+      uploaded_at:
+        type: string
+    type: object
+  httpapi.uploadStorageFileResult:
+    properties:
+      error:
+        type: string
+      filename:
+        type: string
+      path:
+        type: string
+      size:
+        type: integer
+      status:
+        type: string
+      uploaded_at:
+        type: string
+    type: object
+  httpapi.uploadStorageFilesResponse:
+    properties:
+      failed:
+        type: integer
+      results:
+        items:
+          $ref: '#/definitions/httpapi.uploadStorageFileResult'
+        type: array
+      status:
+        type: string
+      uploaded:
+        type: integer
+    type: object
+info:
+  contact: {}
+  description: |-
+    API documentation generated from handler annotations.
+    Protected API routes accept HTTP Basic auth with API_USERNAME and API_PASSWORD.
+  title: start API
+  version: 0.1.0
+paths:
+  /api/bimcollab-callback:
+    get:
+      description: Emails a report containing all incoming request headers and the
+        request body to the configured private address.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.healthResponse'
+      summary: Receive a callback and email a report of the incoming request
+      tags:
+      - bimcollab
+    post:
+      description: Emails a report containing all incoming request headers and the
+        request body to the configured private address.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.healthResponse'
+      summary: Receive a callback and email a report of the incoming request
+      tags:
+      - bimcollab
+    put:
+      description: Emails a report containing all incoming request headers and the
+        request body to the configured private address.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.healthResponse'
+      summary: Receive a callback and email a report of the incoming request
+      tags:
+      - bimcollab
+  /api/bookmark-csv:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.bookmarkCSVResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Get additional bookmark CSV text
+      tags:
+      - bookmarks
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bookmark CSV payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.bookmarkCSVRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.bookmarkCSVResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Save additional bookmark CSV text
+      tags:
+      - bookmarks
+  /api/bookmarks:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/httpapi.bookmarkResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: List bookmarks
+      tags:
+      - bookmarks
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bookmark payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.createBookmarkRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/httpapi.bookmarkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Create a bookmark
+      tags:
+      - bookmarks
+  /api/bookmarks/{id}:
+    delete:
+      parameters:
+      - description: Bookmark ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Delete a bookmark
+      tags:
+      - bookmarks
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bookmark ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Bookmark payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.updateBookmarkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.bookmarkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Update a bookmark
+      tags:
+      - bookmarks
+  /api/bookmarks/{id}/hidden:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Bookmark ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Hidden status
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.toggleBookmarkHiddenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.bookmarkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Toggle bookmark hidden status
+      tags:
+      - bookmarks
+  /api/bookmarks/alfred:
+    get:
+      parameters:
+      - description: Include hidden bookmarks
+        in: query
+        name: include_hidden
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.alfredBookmarksResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: List bookmarks in Alfred workflow format
+      tags:
+      - bookmarks
+  /api/bookmarks/reorder:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Ordered bookmark IDs
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.reorderBookmarksRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.reorderBookmarksResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Reorder bookmarks
+      tags:
+      - bookmarks
+  /api/categories:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/httpapi.categoryResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: List categories
+      tags:
+      - bookmarks
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Category payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.createCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/httpapi.categoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Create a category
+      tags:
+      - bookmarks
+  /api/health:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.healthResponse'
+      summary: Health check
+      tags:
+      - health
+  /api/mail/send:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: Email body
+        in: formData
+        name: body
+        required: true
+        type: string
+      - description: Email subject
+        in: formData
+        name: subject
+        type: string
+      - description: Explicit recipient email address
+        in: formData
+        name: to
+        type: string
+      - description: File attachments (can be multiple)
+        in: formData
+        name: attachments
+        type: file
+      produces:
+      - text/plain
+      responses:
+        "202":
+          description: Mail accepted for sending
+        "400":
+          description: Bad request
+        "503":
+          description: Service unavailable
+      security:
+      - ApiBasicAuth: []
+      summary: Send email message with optional attachments
+      tags:
+      - mail
+  /api/reading-list/bookmarklet-input:
+    get:
+      parameters:
+      - description: URL to add
+        in: query
+        name: url
+        required: true
+        type: string
+      - description: Deprecated; accepted for bookmarklet compatibility
+        in: query
+        name: return_to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Saved-item confirmation page
+          schema:
+            type: string
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/httpapi.readingListItemResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: Add reading-list item from bookmarklet query
+      tags:
+      - reading-list
+  /api/reading-list/items:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/httpapi.readingListItemResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: List reading-list items
+      tags:
+      - reading-list
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Reading-list payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.addReadingListItemRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/httpapi.readingListItemResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Add reading-list item
+      tags:
+      - reading-list
+  /api/reading-list/rss:
+    get:
+      produces:
+      - application/rss+xml
+      responses:
+        "200":
+          description: RSS feed XML
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      summary: Reading-list RSS feed
+      tags:
+      - reading-list
+  /api/storage/files:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/httpapi.storageFileResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: List uploaded storage files
+      tags:
+      - storage
+  /api/storage/files/{filename}:
+    get:
+      parameters:
+      - description: Stored filename
+        in: path
+        name: filename
+        required: true
+        type: string
+      - description: Alternative auth key for file downloads
+        in: query
+        name: secret-key
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Download a storage file
+      tags:
+      - storage
+  /api/storage/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/httpapi.uploadStorageFileResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Upload a file to server storage
+      tags:
+      - storage
+  /api/storage/uploads:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: Files to upload (repeat field)
+        in: formData
+        name: files
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/httpapi.uploadStorageFilesResponse'
+        "207":
+          description: Multi-Status
+          schema:
+            $ref: '#/definitions/httpapi.uploadStorageFilesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Upload multiple files to server storage
+      tags:
+      - storage
+securityDefinitions:
+  ApiBasicAuth:
+    type: basic
+swagger: "2.0"

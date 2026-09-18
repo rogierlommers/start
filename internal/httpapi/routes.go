@@ -61,5 +61,5 @@ func Register(router gin.IRouter, svc *service.Service, cfg config.Config) {
 }
 
 func (h handlers) openapiSpec(c *gin.Context) {
-	c.File("docs/swagger.yaml")
+	c.File("swagger-docs/swagger.yaml")
 }

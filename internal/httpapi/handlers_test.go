@@ -191,8 +191,11 @@ func TestBookmarkCSVHandlersDoNotModifyBookmarks(t *testing.T) {
 	}
 
 	rec = performJSONRequest(router, http.MethodGet, "/api/bookmarks/alfred", "")
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"arg":"https://www.google.com"`) || !strings.Contains(rec.Body.String(), `"title":"tag1 tag2 - https://www.google.com"`) {
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"arg":"https://www.google.com"`) || !strings.Contains(rec.Body.String(), `"title":"tag1 tag2"`) {
 		t.Fatalf("alfred response missing bookmark CSV item = status %d body %q", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), `"title":"tag1 tag2 - https://www.google.com"`) {
+		t.Fatalf("Alfred bookmark CSV title unexpectedly includes the URL: %q", rec.Body.String())
 	}
 	if strings.Contains(rec.Body.String(), `"id":0`) {
 		t.Fatalf("Alfred bookmark CSV item unexpectedly has an ID: %q", rec.Body.String())
@@ -204,10 +207,10 @@ func TestAlfredBookmarkCSVItemsIgnoresCommentsAndEmptyLines(t *testing.T) {
 	if len(items) != 2 {
 		t.Fatalf("alfredBookmarkCSVItems() len = %d, want 2", len(items))
 	}
-	if items[0].Arg != "https://one.example" || items[0].Title != "tag - https://one.example" {
+	if items[0].Arg != "https://one.example" || items[0].Title != "tag" {
 		t.Fatalf("alfredBookmarkCSVItems() = %+v", items[0])
 	}
-	if items[1].Arg != "https://two.example" || items[1].Title != "other - https://two.example" {
+	if items[1].Arg != "https://two.example" || items[1].Title != "other" {
 		t.Fatalf("alfredBookmarkCSVItems() = %+v", items[1])
 	}
 }
@@ -259,6 +262,7 @@ func TestReadingListHandlersAndRSS(t *testing.T) {
 }
 
 func TestOpenAPISpecRoute(t *testing.T) {
+	t.Chdir("../..")
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
@@ -266,8 +270,11 @@ func TestOpenAPISpecRoute(t *testing.T) {
 
 	handlers{}.openapiSpec(c)
 
-	if rec.Code != http.StatusOK && rec.Code != http.StatusNotFound {
-		t.Fatalf("openapi status = %d, want %d or %d", rec.Code, http.StatusOK, http.StatusNotFound)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("openapi status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if !strings.Contains(rec.Body.String(), "swagger:") {
+		t.Fatalf("openapi response does not contain a Swagger document: %q", rec.Body.String())
 	}
 }
 

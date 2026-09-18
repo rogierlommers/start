@@ -74,7 +74,7 @@ func NewHTTPServer(cfg config.Config, appBuildTime string) (*ServerContext, erro
 	// API documentation endpoint
 	protected.GET("/docs/*any", openapiui.WrapHandler(openapiui.Config{
 		SpecURL:      "/openapi.yaml",
-		SpecFilePath: "./docs/swagger.yaml",
+		SpecFilePath: "./swagger-docs/swagger.yaml",
 		Title:        "start API",
 		Theme:        "light",
 	}))

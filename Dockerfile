@@ -25,9 +25,9 @@ RUN addgroup -S app && adduser -S -G app app && \
 
 WORKDIR /app
 
-# Keep docs available for /docs endpoint (server reads ./docs/swagger.yaml).
+# Keep the OpenAPI spec available for the /docs endpoint.
 COPY --from=builder /out/start /app/start
-COPY --from=builder /src/docs /app/docs
+COPY --from=builder /src/swagger-docs /app/swagger-docs
 
 # Config loader currently expects a .env file to exist.
 RUN touch /app/.env && chown app:app /app/.env

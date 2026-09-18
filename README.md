@@ -40,7 +40,7 @@ Use it to guide AI assistants when adding features, fixing bugs, reviewing code,
 
 ## OpenAPI
 
-The generated API specification is available at [docs/swagger.yaml](docs/swagger.yaml).
+The generated API specification is available at [swagger-docs/swagger.yaml](swagger-docs/swagger.yaml).
 
 Regenerate it from handler annotations with:
 
@@ -92,7 +92,7 @@ Storage environment variables:
 - `GET /api/bookmarks`
 - `GET /api/bookmark-csv` (additional bookmark CSV text)
 - `PUT /api/bookmark-csv` (save additional bookmark CSV text)
-- `GET /api/bookmarks/alfred` (Alfred workflow format with regular bookmarks and valid additional CSV rows; `items[]` contain `uid`, `title`, `arg`, and regular bookmarks also include `id`; supports `?include_hidden=true`)
+- `GET /api/bookmarks/alfred` (Alfred workflow format with regular bookmarks and valid additional CSV rows; for CSV rows, `title` is the trimmed first column and `arg` is the trimmed second column; regular bookmarks also include `id`; supports `?include_hidden=true`)
 - `POST /api/bookmarks`
 - `PATCH /api/bookmarks/{id}`
 - `PATCH /api/bookmarks/{id}/hidden`

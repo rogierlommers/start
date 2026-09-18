@@ -297,14 +297,10 @@ func alfredBookmarkCSVItems(content string) []alfredBookmarkItemResponse {
 			continue
 		}
 
-		title := url
-		if tag != "" {
-			title = tag + " - " + url
-		}
 		sum := sha256.Sum256([]byte("bookmark-csv\x00" + tag + "\x00" + url))
 		items = append(items, alfredBookmarkItemResponse{
 			UID:   hex.EncodeToString(sum[:]),
-			Title: title,
+			Title: tag,
 			Arg:   url,
 		})
 	}
