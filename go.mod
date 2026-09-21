@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	github.com/PeterTakahashi/gin-openapi v0.1.0
-	github.com/dustin/go-humanize v1.0.1
+	github.com/dustin/go-humanize v1.1.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/joho/godotenv v1.5.1
 	github.com/sirupsen/logrus v1.10.2
