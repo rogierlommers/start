@@ -23,6 +23,8 @@ A daily calendar notification has two separate time concerns: when the job runs 
 
 Compute each next run as a local wall-clock timestamp in the business timezone. In this app, incident-manager notifications consistently use `Europe/Amsterdam`. After a run, construct the next day's local midnight boundaries with calendar arithmetic, not `24*time.Hour`:
 
+Bundle Go's `time/tzdata` package when the deployment image may not include an operating-system timezone database. A timezone constant alone does not make `time.LoadLocation` self-contained in a minimal container.
+
 ```go
 dayStart := time.Date(year, month, day, 0, 0, 0, 0, location)
 dayEnd := dayStart.AddDate(0, 0, 1)

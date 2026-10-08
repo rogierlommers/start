@@ -11,6 +11,9 @@ import (
 	"strings"
 	"time"
 
+	// Bundle zoneinfo so the fixed business timezone works in minimal containers.
+	_ "time/tzdata"
+
 	"start/internal/mailer"
 
 	"github.com/sirupsen/logrus"
