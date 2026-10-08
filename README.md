@@ -87,7 +87,8 @@ The notification schedule and target calendar day always use the
 
 The feed URL may contain a private calendar token and should be treated as a secret.
 All-day, timed, and recurring (`RRULE`/`EXDATE`) events are supported; the email
-includes each event's summary, time, location, and description when present.
+subject identifies the first matching duty as `📅 Today's IC: <calendar summary>`,
+and the body includes each event's summary, time, location, and description when present.
 Cancelled events are omitted. The worker is disabled when
 `INCIDENT_MANAGER_ICAL_URL` is empty.
 

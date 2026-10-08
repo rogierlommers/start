@@ -133,13 +133,23 @@ func (s *Service) sendIncidentManagerSummary(ctx context.Context, now time.Time)
 
 	msg := mailer.Message{
 		To:      s.cfg.MailerEmailWork,
-		Subject: fmt.Sprintf("Incident manager for %s", dayStart.Format("Monday, 2 January 2006")),
+		Subject: formatIncidentManagerSubject(matching),
 		Body:    formatIncidentManagerSummary(dayStart, matching, location),
 	}
 	if err := s.mailer.Send(ctx, msg); err != nil {
 		return fmt.Errorf("send incident-manager email: %w", err)
 	}
 	return nil
+}
+
+func formatIncidentManagerSubject(events []incidentManagerEvent) string {
+	incidentManager := "No incident manager found"
+	if len(events) > 0 {
+		if summary := strings.TrimSpace(events[0].Summary); summary != "" {
+			incidentManager = summary
+		}
+	}
+	return "📅 Today's IC: " + incidentManager
 }
 
 // GetIncidentManagerOverview returns duties overlapping today and the next 13
