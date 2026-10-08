@@ -26,6 +26,8 @@ var configEnvKeys = []string{
 	"MAILER_SMTP_FROM",
 	"MAILER_EMAIL_PRIVATE",
 	"MAILER_EMAIL_WORK",
+	"INCIDENT_MANAGER_ICAL_URL",
+	"INCIDENT_MANAGER_NOTIFICATION_TIME",
 	"SMTP_PORT",
 	"ENABLE_ACCESS_LOGS",
 }
@@ -55,6 +57,9 @@ func TestLoadDefaults(t *testing.T) {
 		if cfg.SMTPPort != 587 {
 			t.Fatalf("SMTPPort = %d, want %d", cfg.SMTPPort, 587)
 		}
+		if cfg.IncidentManagerNotifyAt != "17:00" {
+			t.Fatalf("IncidentManagerNotifyAt = %q, want %q", cfg.IncidentManagerNotifyAt, "17:00")
+		}
 		if cfg.EnableAccessLogs {
 			t.Fatal("EnableAccessLogs = true, want false")
 		}
@@ -63,26 +68,28 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestLoadParsesOverrides(t *testing.T) {
 	withConfigTestEnv(t, map[string]string{
-		"HTTP_BIND_ADDR":            "127.0.0.1:3000",
-		"LOG_LEVEL":                 "debug",
-		"SQLITE_PATH":               "  /tmp/start.db  ",
-		"GUI_USERNAME":              "gui-user",
-		"GUI_PASSWORD":              "gui-pass",
-		"GUI_SESSION_SECRET":        "stable-session-secret-012345678901",
-		"API_USERNAME":              "api-user",
-		"API_PASSWORD":              "api-pass",
-		"STORAGE_UPLOAD_DIR":        "/tmp/uploads",
-		"STORAGE_MAX_UPLOAD_MB":     "256",
-		"STORAGE_CLEANUP_DAYS":      "14",
-		"READING_LIST_CLEANUP_DAYS": "7",
-		"MAILER_SMTP_HOST":          "smtp.example.com",
-		"MAILER_SMTP_USERNAME":      "mailer-user",
-		"MAILER_SMTP_PASSWORD":      "mailer-pass",
-		"MAILER_SMTP_FROM":          "start@example.com",
-		"MAILER_EMAIL_PRIVATE":      "private@example.com",
-		"MAILER_EMAIL_WORK":         "work@example.com",
-		"SMTP_PORT":                 "2525",
-		"ENABLE_ACCESS_LOGS":        "true",
+		"HTTP_BIND_ADDR":                     "127.0.0.1:3000",
+		"LOG_LEVEL":                          "debug",
+		"SQLITE_PATH":                        "  /tmp/start.db  ",
+		"GUI_USERNAME":                       "gui-user",
+		"GUI_PASSWORD":                       "gui-pass",
+		"GUI_SESSION_SECRET":                 "stable-session-secret-012345678901",
+		"API_USERNAME":                       "api-user",
+		"API_PASSWORD":                       "api-pass",
+		"STORAGE_UPLOAD_DIR":                 "/tmp/uploads",
+		"STORAGE_MAX_UPLOAD_MB":              "256",
+		"STORAGE_CLEANUP_DAYS":               "14",
+		"READING_LIST_CLEANUP_DAYS":          "7",
+		"MAILER_SMTP_HOST":                   "smtp.example.com",
+		"MAILER_SMTP_USERNAME":               "mailer-user",
+		"MAILER_SMTP_PASSWORD":               "mailer-pass",
+		"MAILER_SMTP_FROM":                   "start@example.com",
+		"MAILER_EMAIL_PRIVATE":               "private@example.com",
+		"MAILER_EMAIL_WORK":                  "work@example.com",
+		"INCIDENT_MANAGER_ICAL_URL":          "https://calendar.example.com/duty.ics",
+		"INCIDENT_MANAGER_NOTIFICATION_TIME": "16:30",
+		"SMTP_PORT":                          "2525",
+		"ENABLE_ACCESS_LOGS":                 "true",
 	}, true, func() {
 		cfg, err := Load()
 		if err != nil {
@@ -125,6 +132,9 @@ func TestLoadParsesOverrides(t *testing.T) {
 		if cfg.SMTPPort != 2525 {
 			t.Fatalf("SMTPPort = %d, want %d", cfg.SMTPPort, 2525)
 		}
+		if cfg.IncidentManagerICALURL != "https://calendar.example.com/duty.ics" || cfg.IncidentManagerNotifyAt != "16:30" {
+			t.Fatalf("incident manager settings = (%q, %q)", cfg.IncidentManagerICALURL, cfg.IncidentManagerNotifyAt)
+		}
 		if !cfg.EnableAccessLogs {
 			t.Fatal("EnableAccessLogs = false, want true")
 		}
@@ -151,6 +161,10 @@ func TestLoadRejectsInvalidValues(t *testing.T) {
 		{name: "invalid storage cleanup", env: map[string]string{"STORAGE_CLEANUP_DAYS": "-1"}},
 		{name: "invalid reading list cleanup", env: map[string]string{"READING_LIST_CLEANUP_DAYS": "-1"}},
 		{name: "invalid access logs", env: map[string]string{"ENABLE_ACCESS_LOGS": "maybe"}},
+		{name: "invalid incident notification time", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "https://example.com/duty.ics", "MAILER_EMAIL_WORK": "work@example.com", "INCIDENT_MANAGER_NOTIFICATION_TIME": "25:00"}},
+		{name: "missing incident recipient", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "https://example.com/duty.ics"}},
+		{name: "invalid incident feed URL", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "file:///tmp/duty.ics", "MAILER_EMAIL_WORK": "work@example.com"}},
+		{name: "invalid incident recipient", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "https://example.com/duty.ics", "MAILER_EMAIL_WORK": "not-an-email"}},
 	}
 
 	for _, tt := range tests {

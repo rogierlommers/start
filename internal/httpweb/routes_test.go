@@ -281,3 +281,34 @@ func TestAppHomeIncludesStorageSecretKeyForGUIFileLinks(t *testing.T) {
 		t.Fatalf("home page missing storage secret key reader: %q", body)
 	}
 }
+
+func TestAppHomeIncludesReadOnlyIncidentManagerOverview(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	Register(router, nil, "2026-05-04T00:00:00Z", "")
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	body := rec.Body.String()
+	for _, want := range []string{
+		`data-tab="incident-manager"`,
+		`id="tab-incident-manager"`,
+		`id="incident-manager-status"`,
+		`async function loadIncidentManagerOverview()`,
+		`await apiFetch('/api/incident-manager')`,
+		`${escHtml(summary)}`,
+		`No incident-manager duties found for the upcoming 14 days.`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("home page missing incident-manager marker %q", want)
+		}
+	}
+	if strings.Contains(body, `id="incident-manager-duties" contenteditable`) {
+		t.Fatal("incident-manager overview must be read-only")
+	}
+}

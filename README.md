@@ -74,6 +74,28 @@ SMTP environment variables:
 
 If `SMTP_HOST` or `SMTP_FROM` are not configured, the mail endpoint returns `503`.
 
+### Incident manager notification
+
+The service can download an iCalendar (`.ics`/`.ical`) feed once per day and email
+the `VEVENT` entries that overlap the following day to `MAILER_EMAIL_WORK`.
+
+- `INCIDENT_MANAGER_ICAL_URL` enables the notification worker and contains the HTTP(S) feed URL.
+- `INCIDENT_MANAGER_NOTIFICATION_TIME` sets the daily local send time in `HH:MM` format (default `17:00`).
+
+The notification schedule and target calendar day always use the
+`Europe/Amsterdam` timezone.
+
+The feed URL may contain a private calendar token and should be treated as a secret.
+All-day, timed, and recurring (`RRULE`/`EXDATE`) events are supported; the email
+includes each event's summary, time, location, and description when present.
+Cancelled events are omitted. The worker is disabled when
+`INCIDENT_MANAGER_ICAL_URL` is empty.
+
+The protected `GET /api/incident-manager` endpoint returns duties overlapping
+today and the next 13 days. The homepage exposes the same read-only overview in
+the **Incident Manager** tab next to **Reading List**, including explicit empty
+and feed-error states.
+
 ## Storage Upload API
 
 - `POST /api/storage/upload` (multipart form field: `file`)

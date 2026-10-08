@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"net/mail"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -17,29 +19,31 @@ const (
 
 // Config contains runtime settings sourced from environment variables.
 type Config struct {
-	HostPort               string
-	ShutdownTimeout        time.Duration
-	ReadHeaderTimeout      time.Duration
-	EnableAccessLogs       bool
-	LogLevel               string
-	SQLitePath             string
-	StorageUploadDir       string
-	StorageSecretKey       string
-	StorageMaxUploadMB     int64
-	StorageCleanupDays     int
-	ReadingListCleanupDays int
-	SMTPHost               string
-	SMTPPort               int
-	SMTPUsername           string
-	SMTPPassword           string
-	SMTPFrom               string
-	MailerEmailPrivate     string
-	MailerEmailWork        string
-	GUIUsername            string
-	GUIPassword            string
-	GUISessionSecret       string
-	APIUsername            string
-	APIPassword            string
+	HostPort                string
+	ShutdownTimeout         time.Duration
+	ReadHeaderTimeout       time.Duration
+	EnableAccessLogs        bool
+	LogLevel                string
+	SQLitePath              string
+	StorageUploadDir        string
+	StorageSecretKey        string
+	StorageMaxUploadMB      int64
+	StorageCleanupDays      int
+	ReadingListCleanupDays  int
+	SMTPHost                string
+	SMTPPort                int
+	SMTPUsername            string
+	SMTPPassword            string
+	SMTPFrom                string
+	MailerEmailPrivate      string
+	MailerEmailWork         string
+	IncidentManagerICALURL  string
+	IncidentManagerNotifyAt string
+	GUIUsername             string
+	GUIPassword             string
+	GUISessionSecret        string
+	APIUsername             string
+	APIPassword             string
 }
 
 // Load reads runtime configuration from environment variables with defaults.
@@ -81,6 +85,29 @@ func Load() (Config, error) {
 		SMTPPort:           587,
 		MailerEmailPrivate: os.Getenv("MAILER_EMAIL_PRIVATE"),
 		MailerEmailWork:    os.Getenv("MAILER_EMAIL_WORK"),
+
+		// incident-manager notification settings
+		IncidentManagerICALURL:  strings.TrimSpace(os.Getenv("INCIDENT_MANAGER_ICAL_URL")),
+		IncidentManagerNotifyAt: "17:00",
+	}
+
+	if raw := strings.TrimSpace(os.Getenv("INCIDENT_MANAGER_NOTIFICATION_TIME")); raw != "" {
+		cfg.IncidentManagerNotifyAt = raw
+	}
+	if cfg.IncidentManagerICALURL != "" {
+		feedURL, err := url.Parse(cfg.IncidentManagerICALURL)
+		if err != nil || (feedURL.Scheme != "http" && feedURL.Scheme != "https") || feedURL.Host == "" {
+			return Config{}, fmt.Errorf("invalid INCIDENT_MANAGER_ICAL_URL: expected an absolute HTTP or HTTPS URL")
+		}
+		if _, err := time.Parse("15:04", cfg.IncidentManagerNotifyAt); err != nil {
+			return Config{}, fmt.Errorf("invalid INCIDENT_MANAGER_NOTIFICATION_TIME value %q: expected HH:MM", cfg.IncidentManagerNotifyAt)
+		}
+		if strings.TrimSpace(cfg.MailerEmailWork) == "" {
+			return Config{}, fmt.Errorf("MAILER_EMAIL_WORK is required when INCIDENT_MANAGER_ICAL_URL is configured")
+		}
+		if _, err := mail.ParseAddress(cfg.MailerEmailWork); err != nil {
+			return Config{}, fmt.Errorf("invalid MAILER_EMAIL_WORK value: %w", err)
+		}
 	}
 
 	if rawPort := os.Getenv("SMTP_PORT"); rawPort != "" {

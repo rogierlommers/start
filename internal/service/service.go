@@ -1,6 +1,9 @@
 package service
 
 import (
+	"net/http"
+	"time"
+
 	"start/internal/config"
 	"start/internal/mailer"
 	"start/internal/repository"
@@ -10,11 +13,12 @@ import (
 
 // Service contains application use-cases.
 type Service struct {
-	store     repository.Store
-	mailer    mailer.Sender
-	mailQueue chan mailTask
-	done      chan struct{}
-	cfg       config.Config
+	store      repository.Store
+	mailer     mailer.Sender
+	mailQueue  chan mailTask
+	done       chan struct{}
+	cfg        config.Config
+	httpClient *http.Client
 }
 
 type mailTask struct {
@@ -27,11 +31,12 @@ func New(store repository.Store, sender mailer.Sender, cfg config.Config) *Servi
 	}
 
 	return &Service{
-		store:     store,
-		mailer:    sender,
-		mailQueue: make(chan mailTask, 100), // buffered queue for up to 100 pending emails
-		done:      make(chan struct{}),
-		cfg:       cfg,
+		store:      store,
+		mailer:     sender,
+		mailQueue:  make(chan mailTask, 100), // buffered queue for up to 100 pending emails
+		done:       make(chan struct{}),
+		cfg:        cfg,
+		httpClient: &http.Client{Timeout: 15 * time.Second},
 	}
 }
 

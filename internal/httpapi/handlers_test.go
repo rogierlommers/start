@@ -35,6 +35,48 @@ func TestDetermineRecipientBodyAndSubject(t *testing.T) {
 	}
 }
 
+func TestIncidentManagerOverviewHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	calendar := "BEGIN:VCALENDAR\n" +
+		"BEGIN:VEVENT\n" +
+		"DTSTART;VALUE=DATE:20200101\n" +
+		"DTEND;VALUE=DATE:20200102\n" +
+		"RRULE:FREQ=DAILY\n" +
+		"SUMMARY:Alice Example\n" +
+		"DESCRIPTION:Primary incident manager\n" +
+		"END:VEVENT\n" +
+		"END:VCALENDAR\n"
+	feed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(calendar))
+	}))
+	defer feed.Close()
+
+	cfg := config.Config{IncidentManagerICALURL: feed.URL}
+	svc := service.New(repository.NewMemoryStore(), mailer.DisabledSender{}, cfg)
+	router := gin.New()
+	Register(router, svc, cfg)
+	t.Cleanup(svc.Close)
+
+	rec := performJSONRequest(router, http.MethodGet, "/api/incident-manager", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	for _, want := range []string{`"timezone":"Europe/Amsterdam"`, `"summary":"Alice Example"`, `"all_day":true`} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Fatalf("response body missing %q: %s", want, rec.Body.String())
+		}
+	}
+}
+
+func TestIncidentManagerOverviewHandlerDisabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router, _ := newAPITestRouter(t)
+	rec := performJSONRequest(router, http.MethodGet, "/api/incident-manager", "")
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "not configured") {
+		t.Fatalf("disabled response = status %d body %q", rec.Code, rec.Body.String())
+	}
+}
+
 func TestDeriveSubjectTrimsAndTruncates(t *testing.T) {
 	if got := deriveSubject("  \n first line \nsecond"); got != "first line" {
 		t.Fatalf("deriveSubject() = %q, want %q", got, "first line")

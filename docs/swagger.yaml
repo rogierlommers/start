@@ -101,6 +101,34 @@ definitions:
       status:
         type: string
     type: object
+  httpapi.incidentManagerDutyResponse:
+    properties:
+      all_day:
+        type: boolean
+      description:
+        type: string
+      end:
+        type: string
+      location:
+        type: string
+      start:
+        type: string
+      summary:
+        type: string
+    type: object
+  httpapi.incidentManagerOverviewResponse:
+    properties:
+      duties:
+        items:
+          $ref: '#/definitions/httpapi.incidentManagerDutyResponse'
+        type: array
+      range_end:
+        type: string
+      range_start:
+        type: string
+      timezone:
+        type: string
+    type: object
   httpapi.readingListItemResponse:
     properties:
       created_at:
@@ -584,6 +612,28 @@ paths:
       summary: Health check
       tags:
       - health
+  /api/incident-manager:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.incidentManagerOverviewResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Get upcoming incident-manager duties
+      tags:
+      - incident-manager
   /api/mail/send:
     post:
       consumes:

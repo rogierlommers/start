@@ -82,7 +82,7 @@
     <main class="w-[90vw] max-w-none mx-auto px-4 py-8">
 
       <!-- Tab bar -->
-      <div class="flex gap-2 mb-6" role="tablist">
+      <div class="flex flex-wrap gap-2 mb-6" role="tablist" aria-label="Dashboard sections">
         <button class="tab-btn flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 border-2 border-transparent hover:border-indigo-200" data-tab="bookmarks" role="tab">
           <span class="text-lg">🔖</span>
           <span>Bookmarks</span>
@@ -98,6 +98,10 @@
         <button class="tab-btn flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 border-2 border-transparent hover:border-rose-200" data-tab="reading-list" role="tab">
           <span class="text-lg">📚</span>
           <span>Reading List</span>
+        </button>
+        <button class="tab-btn flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 border-2 border-transparent hover:border-sky-200" data-tab="incident-manager" role="tab" type="button" aria-controls="tab-incident-manager">
+          <span class="text-lg" aria-hidden="true">🛟</span>
+          <span>Incident Manager</span>
         </button>
       </div>
 
@@ -118,6 +122,21 @@
         <ul id="reading-list-items" class="divide-y divide-gray-100 text-sm text-gray-700 min-h-[2rem]">
           <li class="py-2 text-xs text-gray-400">Loading…</li>
         </ul>
+      </section>
+
+      <!-- ── Incident Manager ────────────────────────────────── -->
+      <section id="tab-incident-manager" class="tab-panel bg-white rounded-2xl border border-gray-200 p-5 shadow-sm" role="tabpanel">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h2 class="text-base font-semibold">Incident Manager</h2>
+            <p class="mt-1 text-xs text-gray-500">Today and the next 13 days in Europe/Amsterdam.</p>
+          </div>
+          <button type="button" onclick="loadIncidentManagerOverview()" class="text-xs text-sky-600 hover:underline focus:outline-none focus:ring-2 focus:ring-sky-400 rounded">
+            Refresh
+          </button>
+        </div>
+        <div id="incident-manager-status" class="text-xs text-gray-400" role="status" aria-live="polite">Loading…</div>
+        <ul id="incident-manager-duties" class="mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-3"></ul>
       </section>
 
       <!-- ── Mail ─────────────────────────────────────────────── -->
@@ -562,6 +581,77 @@
         link.setAttribute('href', bookmarklet)
       }
 
+      // ── Incident Manager ─────────────────────────────────────
+
+      function fmtIncidentDate(iso, timezone) {
+        return new Intl.DateTimeFormat('en-GB', {
+          timeZone: timezone,
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+        }).format(new Date(iso))
+      }
+
+      function fmtIncidentTime(iso, timezone) {
+        return new Intl.DateTimeFormat('en-GB', {
+          timeZone: timezone,
+          hour: '2-digit',
+          minute: '2-digit',
+          hourCycle: 'h23',
+        }).format(new Date(iso))
+      }
+
+      function fmtIncidentDayKey(iso, timezone) {
+        return new Intl.DateTimeFormat('en-CA', {
+          timeZone: timezone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(new Date(iso))
+      }
+
+      async function loadIncidentManagerOverview() {
+        const status = document.getElementById('incident-manager-status')
+        const list = document.getElementById('incident-manager-duties')
+        status.className = 'text-xs text-gray-400'
+        status.textContent = 'Loading…'
+        list.innerHTML = ''
+
+        try {
+          const overview = await apiFetch('/api/incident-manager')
+          const duties = overview?.duties || []
+          const timezone = overview?.timezone || 'Europe/Amsterdam'
+          if (duties.length === 0) {
+            status.textContent = 'No incident-manager duties found for the upcoming 14 days.'
+            return
+          }
+
+          status.textContent = `${duties.length} dut${duties.length === 1 ? 'y' : 'ies'} found.`
+          list.innerHTML = duties.map((duty) => {
+            const summary = String(duty.summary || '').trim() || 'Untitled duty event'
+            const date = fmtIncidentDate(duty.start, timezone)
+            const endsOnAnotherDay = fmtIncidentDayKey(duty.start, timezone) !== fmtIncidentDayKey(duty.end, timezone)
+            const schedule = duty.all_day
+              ? `${date} · All day`
+              : endsOnAnotherDay
+                ? `${date} ${fmtIncidentTime(duty.start, timezone)}–${fmtIncidentDate(duty.end, timezone)} ${fmtIncidentTime(duty.end, timezone)}`
+                : `${date} · ${fmtIncidentTime(duty.start, timezone)}–${fmtIncidentTime(duty.end, timezone)}`
+            const location = String(duty.location || '').trim()
+            const description = String(duty.description || '').trim()
+
+            return `<li class="rounded-xl border border-sky-100 bg-sky-50/60 p-4 min-w-0">
+              <p class="text-sm font-semibold text-gray-900 break-words">${escHtml(summary)}</p>
+              <p class="mt-1 text-xs font-medium text-sky-700">${escHtml(schedule)}</p>
+              ${location ? `<p class="mt-2 text-xs text-gray-600 break-words">📍 ${escHtml(location)}</p>` : ''}
+              ${description ? `<p class="mt-2 text-xs leading-relaxed text-gray-600 whitespace-pre-wrap break-words">${escHtml(description)}</p>` : ''}
+            </li>`
+          }).join('')
+        } catch (err) {
+          status.className = 'text-xs text-red-500'
+          status.textContent = err.message
+        }
+      }
+
       // ── Bookmarks ─────────────────────────────────────────────
 
       let categoriesCache = []
@@ -988,10 +1078,11 @@
           const tabName = btn.dataset.tab
           
           // Remove all color classes
-          btn.classList.remove('text-indigo-600', 'text-rose-600', 'text-amber-600', 'text-emerald-600')
-          btn.classList.remove('bg-indigo-50', 'bg-rose-50', 'bg-amber-50', 'bg-emerald-50')
-          btn.classList.remove('border-indigo-300', 'border-rose-300', 'border-amber-300', 'border-emerald-300')
+          btn.classList.remove('text-indigo-600', 'text-rose-600', 'text-amber-600', 'text-emerald-600', 'text-sky-600')
+          btn.classList.remove('bg-indigo-50', 'bg-rose-50', 'bg-amber-50', 'bg-emerald-50', 'bg-sky-50')
+          btn.classList.remove('border-indigo-300', 'border-rose-300', 'border-amber-300', 'border-emerald-300', 'border-sky-300')
           btn.classList.remove('text-gray-500')
+          btn.setAttribute('aria-selected', String(active))
           
           if (active) {
             // Active state with tab-specific colors
@@ -1003,6 +1094,8 @@
               btn.classList.add('bg-amber-50', 'text-amber-600', 'border-amber-300')
             } else if (tabName === 'storage') {
               btn.classList.add('bg-emerald-50', 'text-emerald-600', 'border-emerald-300')
+            } else if (tabName === 'incident-manager') {
+              btn.classList.add('bg-sky-50', 'text-sky-600', 'border-sky-300')
             }
           } else {
             // Inactive state
@@ -1059,6 +1152,7 @@
       initReadingListBookmarklet()
       loadStorageFiles()
       loadReadingListItems()
+      loadIncidentManagerOverview()
       loadCategories().then(() => loadBookmarks())
       loadBookmarkCSV()
     </script>
