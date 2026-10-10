@@ -160,6 +160,7 @@ ENABLE_BANKING_APPLICATION_ID='your-application-uuid'
 ENABLE_BANKING_PRIVATE_KEY_PATH='/run/secrets/enable-banking.pem'
 ENABLE_BANKING_CALLBACK_URL='https://your-dashboard.example/api/banking/callback'
 ENABLE_BANKING_ASPSP_NAME='ING'
+ENABLE_BANKING_CACHE_MINUTES='60'
 DATA_PROTECTION_EMAIL='you@example.com'
 ```
 
@@ -179,18 +180,20 @@ After restarting the service, sign in to the dashboard and select **Connect ING*
 Banking redirects to ING for approval and then returns to the protected callback. The
 application stores and displays every account returned by ING, in provider order.
 
-Successful balance responses are cached independently in memory for five minutes. A
-manual refresh bypasses that interval. If one account is temporarily unavailable after a
-successful refresh, its card displays the cached value while the other accounts continue
-to refresh. ING consent is requested for 180 days; the card prompts for reconnection after
-expiry.
+Successful balance responses are cached independently in memory for 60 minutes by default.
+`ENABLE_BANKING_CACHE_MINUTES` changes both the cache lifetime and the background refresh
+interval. A manual refresh bypasses that interval. If one account is temporarily unavailable
+after a successful refresh, its card displays the cached value while the other accounts
+continue to refresh. ING consent is requested for 180 days; the card prompts for
+reconnection after expiry.
 
 Each account card also shows its five most recent booked transactions from the last 90
 days. Transaction details include the amount, currency, booking date, counterparty, and
 payment description when ING supplies them. Responses are cached independently in memory
-for five minutes and are never written to SQLite. Connections created before transaction
-support remain balance-only until **Reconnect for transactions** is selected and the
-expanded ING consent is approved.
+for the configured banking cache interval and are never written to SQLite. The background
+worker refreshes balance and transaction caches at that interval. Connections created
+before transaction support remain balance-only until **Reconnect for transactions** is
+selected and the expanded ING consent is approved.
 
 Use **Add name** or **Rename** on an account card to set a local alias of up to 80
 characters. An empty value restores the ING-provided name. Aliases are stored separately

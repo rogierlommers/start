@@ -34,6 +34,7 @@ var configEnvKeys = []string{
 	"ENABLE_BANKING_PRIVATE_KEY_PATH",
 	"ENABLE_BANKING_CALLBACK_URL",
 	"ENABLE_BANKING_ASPSP_NAME",
+	"ENABLE_BANKING_CACHE_MINUTES",
 	"DATA_PROTECTION_EMAIL",
 }
 
@@ -64,6 +65,9 @@ func TestLoadDefaults(t *testing.T) {
 		}
 		if cfg.IncidentManagerNotifyAt != "17:00" {
 			t.Fatalf("IncidentManagerNotifyAt = %q, want %q", cfg.IncidentManagerNotifyAt, "17:00")
+		}
+		if cfg.EnableBankingCacheTTL != 60*time.Minute {
+			t.Fatalf("EnableBankingCacheTTL = %v, want %v", cfg.EnableBankingCacheTTL, 60*time.Minute)
 		}
 		if cfg.EnableAccessLogs {
 			t.Fatal("EnableAccessLogs = true, want false")
@@ -99,6 +103,7 @@ func TestLoadParsesOverrides(t *testing.T) {
 		"ENABLE_BANKING_PRIVATE_KEY_PATH":    "/run/secrets/enable-banking.pem",
 		"ENABLE_BANKING_CALLBACK_URL":        "https://dashboard.example/api/banking/callback",
 		"ENABLE_BANKING_ASPSP_NAME":          "ING NL",
+		"ENABLE_BANKING_CACHE_MINUTES":       "90",
 		"DATA_PROTECTION_EMAIL":              "privacy@example.com",
 	}, true, func() {
 		cfg, err := Load()
@@ -151,6 +156,9 @@ func TestLoadParsesOverrides(t *testing.T) {
 		if !cfg.EnableBankingEnabled() || cfg.EnableBankingASPSPName != "ING NL" {
 			t.Fatalf("Enable Banking settings = %+v", cfg)
 		}
+		if cfg.EnableBankingCacheTTL != 90*time.Minute {
+			t.Fatalf("EnableBankingCacheTTL = %v, want %v", cfg.EnableBankingCacheTTL, 90*time.Minute)
+		}
 	})
 }
 
@@ -174,6 +182,8 @@ func TestLoadRejectsInvalidValues(t *testing.T) {
 		{name: "invalid storage cleanup", env: map[string]string{"STORAGE_CLEANUP_DAYS": "-1"}},
 		{name: "invalid reading list cleanup", env: map[string]string{"READING_LIST_CLEANUP_DAYS": "-1"}},
 		{name: "invalid access logs", env: map[string]string{"ENABLE_ACCESS_LOGS": "maybe"}},
+		{name: "invalid banking cache minutes", env: map[string]string{"ENABLE_BANKING_CACHE_MINUTES": "abc"}},
+		{name: "non-positive banking cache minutes", env: map[string]string{"ENABLE_BANKING_CACHE_MINUTES": "0"}},
 		{name: "invalid incident notification time", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "https://example.com/duty.ics", "MAILER_EMAIL_WORK": "work@example.com", "INCIDENT_MANAGER_NOTIFICATION_TIME": "25:00"}},
 		{name: "missing incident recipient", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "https://example.com/duty.ics"}},
 		{name: "invalid incident feed URL", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "file:///tmp/duty.ics", "MAILER_EMAIL_WORK": "work@example.com"}},

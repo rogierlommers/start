@@ -17,11 +17,12 @@ import (
 
 	"start/internal/banking"
 	"start/internal/repository"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
 	bankingStateLifetime   = 15 * time.Minute
-	bankingCacheLifetime   = 5 * time.Minute
 	bankingConsentDays     = 180
 	bankingTransactionDays = 90
 	maxBankTransactions    = 50
@@ -224,7 +225,7 @@ func (s *Service) GetBankBalances(ctx context.Context, now time.Time, forceRefre
 			continue
 		}
 		cachedOverview, hasCache := cached[connection.AccountID]
-		if !forceRefresh && hasCache && cachedOverview.FetchedAt.Add(bankingCacheLifetime).After(now) {
+		if !forceRefresh && hasCache && cachedOverview.FetchedAt.Add(s.bankingCacheTTL()).After(now) {
 			results[index] = cachedOverview
 			continue
 		}
@@ -378,7 +379,7 @@ func (s *Service) GetBankTransactions(ctx context.Context, now time.Time, limit 
 			continue
 		}
 		cachedOverview, hasCache := cached[connection.AccountID]
-		if !forceRefresh && hasCache && cachedOverview.FetchedAt.Add(bankingCacheLifetime).After(now) {
+		if !forceRefresh && hasCache && cachedOverview.FetchedAt.Add(s.bankingCacheTTL()).After(now) {
 			results[index] = limitAccountTransactions(cachedOverview, limit)
 			continue
 		}
@@ -415,6 +416,48 @@ func (s *Service) GetBankTransactions(ctx context.Context, now time.Time, limit 
 	}
 	decorateBankTransactions(results, connections, aliases)
 	return BankTransactionsOverview{Status: status, Accounts: results}, nil
+}
+
+func (s *Service) bankingCacheTTL() time.Duration {
+	if s.cfg.EnableBankingCacheTTL > 0 {
+		return s.cfg.EnableBankingCacheTTL
+	}
+	return 60 * time.Minute
+}
+
+// StartBankingCacheWorker refreshes balance and transaction caches at the
+// configured cache interval. Banking provider errors retain stale cache entries.
+func (s *Service) StartBankingCacheWorker() {
+	if !s.cfg.EnableBankingEnabled() || s.bankingClient == nil {
+		logrus.Info("banking cache refresh disabled")
+		return
+	}
+
+	interval := s.bankingCacheTTL()
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case now := <-ticker.C:
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				s.refreshBankingCaches(ctx, now)
+				cancel()
+			case <-s.done:
+				return
+			}
+		}
+	}()
+}
+
+func (s *Service) refreshBankingCaches(ctx context.Context, now time.Time) {
+	if _, err := s.GetBankBalances(ctx, now, true); err != nil {
+		logrus.Errorf("banking balance cache refresh failed: %v", err)
+	}
+	if _, err := s.GetBankTransactions(ctx, now, maxBankTransactions, true); err != nil {
+		logrus.Errorf("banking transaction cache refresh failed: %v", err)
+	}
 }
 
 func (s *Service) SetBankAccountAlias(ctx context.Context, accountKey, alias string, now time.Time) (string, error) {

@@ -33,7 +33,7 @@ Treat the authorization callback as a security boundary:
 - Require an HTTPS callback and the existing authenticated dashboard session.
 - Keep the provider RSA key outside the repository and browser.
 
-Persist only the references needed to resume access: provider session ID, account ID, display label, currency, consent expiry, and whether transaction permission was granted. Treat every account returned by an authorization session as part of one atomic replacement so reconnecting cannot leave removed accounts behind. Do not persist balances or transactions unless a later product requirement needs historical data. Cache each successful balance and recent-transaction response independently, and label only that account as stale when its provider refresh fails.
+Persist only the references needed to resume access: provider session ID, account ID, display label, currency, consent expiry, and whether transaction permission was granted. Treat every account returned by an authorization session as part of one atomic replacement so reconnecting cannot leave removed accounts behind. Do not persist balances or transactions unless a later product requirement needs historical data. Cache each successful balance and recent-transaction response independently, use the same configured interval for cache freshness and background refreshes, and label only that account as stale when its provider refresh fails.
 
 Store user-defined account aliases separately from replaceable session rows. Key aliases by Enable Banking's stable `identification_hash`, not its session account UUID, and expose only a SHA-256-derived account key to the browser. This keeps aliases through consent renewal without exposing the provider identifier in dashboard URLs.
 
@@ -49,7 +49,7 @@ The aggregator supplies the regulated production connection while the applicatio
 
 ## Examples
 
-`internal/banking/client.go` signs Enable Banking requests with RS256 and bounds provider responses. `internal/service/banking.go` manages one-time consent state, selects the available balance for every connected account, and serves independent five-minute balance and transaction caches per account. Migration 5 backfills the former singleton connection into an ordered multi-account table; migration 6 records transaction-consent capability; migration 7 adds stable account identification and separately stored aliases without adding balance or transaction rows.
+`internal/banking/client.go` signs Enable Banking requests with RS256 and bounds provider responses. `internal/service/banking.go` manages one-time consent state, selects the available balance for every connected account, and serves independent balance and transaction caches per account. The cache and background refresh interval defaults to 60 minutes and is configured with `ENABLE_BANKING_CACHE_MINUTES`. Migration 5 backfills the former singleton connection into an ordered multi-account table; migration 6 records transaction-consent capability; migration 7 adds stable account identification and separately stored aliases without adding balance or transaction rows.
 
 ## Related
 

@@ -167,13 +167,17 @@ func TestBankingConnectionAndCachedBalance(t *testing.T) {
 	if _, err := svc.SetBankAccountAlias(context.Background(), strings.Repeat("0", 64), "Unknown", now); !errors.Is(err, ErrBankAccountNotFound) {
 		t.Fatalf("unknown account error = %v, want %v", err, ErrBankAccountNotFound)
 	}
-	_, err = svc.GetBankBalances(context.Background(), now.Add(time.Minute), false)
+	_, err = svc.GetBankBalances(context.Background(), now.Add(30*time.Minute), false)
 	if err != nil || client.balanceCalls != 2 {
 		t.Fatalf("cached GetBankBalances() error = %v, calls = %d", err, client.balanceCalls)
 	}
+	_, err = svc.GetBankBalances(context.Background(), now.Add(61*time.Minute), false)
+	if err != nil || client.balanceCalls != 4 {
+		t.Fatalf("expired-cache GetBankBalances() error = %v, calls = %d", err, client.balanceCalls)
+	}
 
 	client.balanceErrors["account-2"] = errors.New("provider down")
-	stale, err := svc.GetBankBalances(context.Background(), now.Add(10*time.Minute), true)
+	stale, err := svc.GetBankBalances(context.Background(), now.Add(70*time.Minute), true)
 	if err != nil || stale.Accounts[0].Stale || !stale.Accounts[1].Stale || stale.Accounts[1].Amount != "250.00" {
 		t.Fatalf("stale GetBankBalances() = (%+v, %v)", stale, err)
 	}
@@ -185,12 +189,16 @@ func TestBankingConnectionAndCachedBalance(t *testing.T) {
 	if transaction.Counterparty != "Employer" || transaction.Description != "Salary" || transaction.Direction != "CRDT" {
 		t.Fatalf("latest transaction = %+v", transaction)
 	}
-	_, err = svc.GetBankTransactions(context.Background(), now.Add(time.Minute), 5, false)
+	_, err = svc.GetBankTransactions(context.Background(), now.Add(30*time.Minute), 5, false)
 	if err != nil || client.transactionCalls != 2 {
 		t.Fatalf("cached GetBankTransactions() error = %v, calls = %d", err, client.transactionCalls)
 	}
+	_, err = svc.GetBankTransactions(context.Background(), now.Add(61*time.Minute), 5, false)
+	if err != nil || client.transactionCalls != 4 {
+		t.Fatalf("expired-cache GetBankTransactions() error = %v, calls = %d", err, client.transactionCalls)
+	}
 	client.transactionErrors["account-1"] = errors.New("provider down")
-	staleTransactions, err := svc.GetBankTransactions(context.Background(), now.Add(10*time.Minute), 5, true)
+	staleTransactions, err := svc.GetBankTransactions(context.Background(), now.Add(70*time.Minute), 5, true)
 	if err != nil || !staleTransactions.Accounts[0].Stale || len(staleTransactions.Accounts[0].Transactions) != 2 || staleTransactions.Accounts[1].Stale {
 		t.Fatalf("stale GetBankTransactions() = (%+v, %v)", staleTransactions, err)
 	}
@@ -213,10 +221,47 @@ func TestBankingRejectsReusedState(t *testing.T) {
 	}
 }
 
+func TestRefreshBankingCachesRefreshesBalancesAndTransactions(t *testing.T) {
+	now := time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC)
+	store := repository.NewMemoryStore()
+	if err := store.ReplaceBankConnections(context.Background(), []repository.BankConnection{{
+		SessionID: "session-1", AccountID: "account-1", AccountName: "Current account",
+		Currency: "EUR", ValidUntil: now.AddDate(0, 0, 180), UpdatedAt: now,
+		TransactionsEnabled: true, IdentificationHash: "stable-1",
+	}}); err != nil {
+		t.Fatalf("ReplaceBankConnections() error = %v", err)
+	}
+	client := &fakeBankingClient{
+		balances: map[string][]banking.Balance{
+			"account-1": {{Type: "CLAV", Amount: "100.00", Currency: "EUR"}},
+		},
+		balanceErrors: map[string]error{},
+		transactions: map[string][]banking.Transaction{
+			"account-1": {{Amount: "10.00", Currency: "EUR", Direction: "DBIT", BookingDate: "2026-10-09"}},
+		},
+		transactionErrors: map[string]error{},
+	}
+	svc := NewWithOptions(store, mailer.DisabledSender{}, bankingConfig(), Options{BankingClient: client})
+	t.Cleanup(svc.Close)
+	svc.bankingAccountsSynced = true
+
+	svc.refreshBankingCaches(context.Background(), now)
+
+	svc.bankingMu.Lock()
+	defer svc.bankingMu.Unlock()
+	if len(svc.bankingCache) != 1 || len(svc.bankingTransactionCache) != 1 {
+		t.Fatalf("cache sizes = (%d balances, %d transactions), want (1, 1)", len(svc.bankingCache), len(svc.bankingTransactionCache))
+	}
+	if client.balanceCalls != 1 || client.transactionCalls != 1 {
+		t.Fatalf("provider calls = (%d balances, %d transactions), want (1, 1)", client.balanceCalls, client.transactionCalls)
+	}
+}
+
 func bankingConfig() config.Config {
 	return config.Config{
 		EnableBankingAppID: "app", EnableBankingPrivateKey: "/private.pem",
 		EnableBankingCallbackURL: "https://dashboard.example/api/banking/callback",
 		EnableBankingASPSPName:   "ING",
+		EnableBankingCacheTTL:    60 * time.Minute,
 	}
 }

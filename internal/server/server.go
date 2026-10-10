@@ -81,6 +81,7 @@ func NewHTTPServer(cfg config.Config, appBuildTime string) (*ServerContext, erro
 	svc.StartStorageCleanupWorker()
 	svc.StartReadingListCleanupWorker()
 	svc.StartIncidentManagerWorker()
+	svc.StartBankingCacheWorker()
 
 	httpweb.RegisterPublicWithContact(router, guiAuth, cfg.DataProtectionEmail)
 	httpapi.RegisterPublic(router, svc, cfg)

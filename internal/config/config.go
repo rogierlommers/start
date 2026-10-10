@@ -48,6 +48,7 @@ type Config struct {
 	EnableBankingPrivateKey  string
 	EnableBankingCallbackURL string
 	EnableBankingASPSPName   string
+	EnableBankingCacheTTL    time.Duration
 	DataProtectionEmail      string
 }
 
@@ -77,6 +78,7 @@ func Load() (Config, error) {
 		EnableBankingPrivateKey:  strings.TrimSpace(os.Getenv("ENABLE_BANKING_PRIVATE_KEY_PATH")),
 		EnableBankingCallbackURL: strings.TrimSpace(os.Getenv("ENABLE_BANKING_CALLBACK_URL")),
 		EnableBankingASPSPName:   "ING",
+		EnableBankingCacheTTL:    60 * time.Minute,
 		DataProtectionEmail:      strings.TrimSpace(os.Getenv("DATA_PROTECTION_EMAIL")),
 		EnableAccessLogs:         false, // default to false, can be enabled with env var
 
@@ -102,6 +104,13 @@ func Load() (Config, error) {
 	}
 	if raw := strings.TrimSpace(os.Getenv("ENABLE_BANKING_ASPSP_NAME")); raw != "" {
 		cfg.EnableBankingASPSPName = raw
+	}
+	if raw := strings.TrimSpace(os.Getenv("ENABLE_BANKING_CACHE_MINUTES")); raw != "" {
+		cacheTTL, err := time.ParseDuration(raw + "m")
+		if err != nil || cacheTTL <= 0 {
+			return Config{}, fmt.Errorf("invalid ENABLE_BANKING_CACHE_MINUTES value %q", raw)
+		}
+		cfg.EnableBankingCacheTTL = cacheTTL
 	}
 	if err := validateEnableBankingConfig(cfg); err != nil {
 		return Config{}, err
