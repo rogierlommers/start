@@ -15,18 +15,19 @@ import (
 
 // Service contains application use-cases.
 type Service struct {
-	store                 repository.Store
-	mailer                mailer.Sender
-	mailQueue             chan mailTask
-	done                  chan struct{}
-	cfg                   config.Config
-	httpClient            *http.Client
-	bankingClient         banking.Client
-	bankingMu             sync.Mutex
-	bankingSyncMu         sync.Mutex
-	bankingStates         map[string]time.Time
-	bankingCache          map[string]BankBalanceOverview
-	bankingAccountsSynced bool
+	store                   repository.Store
+	mailer                  mailer.Sender
+	mailQueue               chan mailTask
+	done                    chan struct{}
+	cfg                     config.Config
+	httpClient              *http.Client
+	bankingClient           banking.Client
+	bankingMu               sync.Mutex
+	bankingSyncMu           sync.Mutex
+	bankingStates           map[string]time.Time
+	bankingCache            map[string]BankBalanceOverview
+	bankingTransactionCache map[string]BankAccountTransactions
+	bankingAccountsSynced   bool
 }
 
 type Options struct {
@@ -47,15 +48,16 @@ func NewWithOptions(store repository.Store, sender mailer.Sender, cfg config.Con
 	}
 
 	return &Service{
-		store:         store,
-		mailer:        sender,
-		mailQueue:     make(chan mailTask, 100), // buffered queue for up to 100 pending emails
-		done:          make(chan struct{}),
-		cfg:           cfg,
-		httpClient:    &http.Client{Timeout: 15 * time.Second},
-		bankingClient: options.BankingClient,
-		bankingStates: make(map[string]time.Time),
-		bankingCache:  make(map[string]BankBalanceOverview),
+		store:                   store,
+		mailer:                  sender,
+		mailQueue:               make(chan mailTask, 100), // buffered queue for up to 100 pending emails
+		done:                    make(chan struct{}),
+		cfg:                     cfg,
+		httpClient:              &http.Client{Timeout: 15 * time.Second},
+		bankingClient:           options.BankingClient,
+		bankingStates:           make(map[string]time.Time),
+		bankingCache:            make(map[string]BankBalanceOverview),
+		bankingTransactionCache: make(map[string]BankAccountTransactions),
 	}
 }
 

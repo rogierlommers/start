@@ -78,12 +78,13 @@ type ReadingListStore interface {
 // BankConnection contains the minimum provider references needed to refresh account data.
 // It intentionally does not store balances, transactions, access tokens, or bank credentials.
 type BankConnection struct {
-	SessionID   string
-	AccountID   string
-	AccountName string
-	Currency    string
-	ValidUntil  time.Time
-	UpdatedAt   time.Time
+	SessionID           string
+	AccountID           string
+	AccountName         string
+	Currency            string
+	ValidUntil          time.Time
+	UpdatedAt           time.Time
+	TransactionsEnabled bool
 }
 
 type BankConnectionStore interface {

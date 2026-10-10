@@ -171,8 +171,9 @@ func TestSQLiteBankConnectionRoundTrip(t *testing.T) {
 		},
 		{
 			SessionID: "session", AccountID: "account-2", AccountName: "Savings account", Currency: "EUR",
-			ValidUntil: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
-			UpdatedAt:  time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC),
+			ValidUntil:          time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+			UpdatedAt:           time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC),
+			TransactionsEnabled: true,
 		},
 	}
 	if err := store.ReplaceBankConnections(ctx, want); err != nil {
@@ -239,7 +240,7 @@ func TestSQLiteMigrationBackfillsExistingBankConnection(t *testing.T) {
 	}
 	defer store.Close()
 	connections, err := store.ListBankConnections(context.Background())
-	if err != nil || len(connections) != 1 || connections[0].AccountID != "account-1" {
+	if err != nil || len(connections) != 1 || connections[0].AccountID != "account-1" || connections[0].TransactionsEnabled {
 		t.Fatalf("backfilled connections = (%+v, %v)", connections, err)
 	}
 }

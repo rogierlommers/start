@@ -33,6 +33,7 @@ type Client interface {
 	GetSession(ctx context.Context, sessionID string) (Session, error)
 	GetAccountDetails(ctx context.Context, accountID string) (Account, error)
 	GetBalances(ctx context.Context, accountID string) ([]Balance, error)
+	GetTransactions(ctx context.Context, accountID string, dateFrom, dateTo time.Time) ([]Transaction, error)
 }
 
 type AuthorizationRequest struct {
@@ -44,9 +45,10 @@ type AuthorizationRequest struct {
 }
 
 type Session struct {
-	ID         string
-	Accounts   []Account
-	ValidUntil time.Time
+	ID                  string
+	Accounts            []Account
+	ValidUntil          time.Time
+	TransactionsEnabled bool
 }
 
 type Account struct {
@@ -63,6 +65,20 @@ type Balance struct {
 	Currency      string
 	LastChange    time.Time
 	ReferenceDate string
+}
+
+type Transaction struct {
+	Amount                string
+	Currency              string
+	Direction             string
+	Status                string
+	BookingDate           string
+	TransactionDate       string
+	ValueDate             string
+	CreditorName          string
+	DebtorName            string
+	RemittanceInformation []string
+	Note                  string
 }
 
 // HTTPError reports a provider status without exposing a potentially sensitive response body.
@@ -105,8 +121,9 @@ func NewEnableBankingClient(applicationID, privateKeyPath string, httpClient *ht
 func (c *EnableBankingClient) StartAuthorization(ctx context.Context, input AuthorizationRequest) (string, error) {
 	payload := struct {
 		Access struct {
-			Balances   bool   `json:"balances"`
-			ValidUntil string `json:"valid_until"`
+			Balances     bool   `json:"balances"`
+			Transactions bool   `json:"transactions"`
+			ValidUntil   string `json:"valid_until"`
 		} `json:"access"`
 		ASPSP struct {
 			Name    string `json:"name"`
@@ -117,6 +134,7 @@ func (c *EnableBankingClient) StartAuthorization(ctx context.Context, input Auth
 		PSUType     string `json:"psu_type"`
 	}{}
 	payload.Access.Balances = true
+	payload.Access.Transactions = true
 	payload.Access.ValidUntil = input.ValidUntil.UTC().Format(time.RFC3339)
 	payload.ASPSP.Name = input.ASPSPName
 	payload.ASPSP.Country = input.Country
@@ -147,7 +165,8 @@ func (c *EnableBankingClient) AuthorizeSession(ctx context.Context, code string)
 			Currency string `json:"currency"`
 		} `json:"accounts"`
 		Access struct {
-			ValidUntil string `json:"valid_until"`
+			ValidUntil   string `json:"valid_until"`
+			Transactions bool   `json:"transactions"`
 		} `json:"access"`
 	}
 	if err := c.doJSON(ctx, http.MethodPost, "/sessions", map[string]string{"code": code}, &response); err != nil {
@@ -157,7 +176,7 @@ func (c *EnableBankingClient) AuthorizeSession(ctx context.Context, code string)
 	if err != nil {
 		return Session{}, errors.New("Enable Banking returned an invalid consent expiry")
 	}
-	session := Session{ID: response.SessionID, ValidUntil: validUntil}
+	session := Session{ID: response.SessionID, ValidUntil: validUntil, TransactionsEnabled: response.Access.Transactions}
 	seenAccountIDs := make(map[string]struct{}, len(response.Accounts))
 	for _, account := range response.Accounts {
 		if account.UID == "" {
@@ -184,7 +203,8 @@ func (c *EnableBankingClient) GetSession(ctx context.Context, sessionID string) 
 			UID string `json:"uid"`
 		} `json:"accounts_data"`
 		Access struct {
-			ValidUntil string `json:"valid_until"`
+			ValidUntil   string `json:"valid_until"`
+			Transactions bool   `json:"transactions"`
 		} `json:"access"`
 	}
 	path := "/sessions/" + url.PathEscape(sessionID)
@@ -203,7 +223,7 @@ func (c *EnableBankingClient) GetSession(ctx context.Context, sessionID string) 
 		}
 	}
 	seen := make(map[string]struct{}, len(accountIDs))
-	session := Session{ID: sessionID, ValidUntil: validUntil}
+	session := Session{ID: sessionID, ValidUntil: validUntil, TransactionsEnabled: response.Access.Transactions}
 	for _, accountID := range accountIDs {
 		if accountID == "" {
 			return Session{}, errors.New("Enable Banking returned an account without an ID")
@@ -264,6 +284,65 @@ func (c *EnableBankingClient) GetBalances(ctx context.Context, accountID string)
 		})
 	}
 	return balances, nil
+}
+
+func (c *EnableBankingClient) GetTransactions(ctx context.Context, accountID string, dateFrom, dateTo time.Time) ([]Transaction, error) {
+	type transactionsResponse struct {
+		Transactions []struct {
+			Amount struct {
+				Amount   string `json:"amount"`
+				Currency string `json:"currency"`
+			} `json:"transaction_amount"`
+			Direction       string `json:"credit_debit_indicator"`
+			Status          string `json:"status"`
+			BookingDate     string `json:"booking_date"`
+			TransactionDate string `json:"transaction_date"`
+			ValueDate       string `json:"value_date"`
+			Creditor        struct {
+				Name string `json:"name"`
+			} `json:"creditor"`
+			Debtor struct {
+				Name string `json:"name"`
+			} `json:"debtor"`
+			RemittanceInformation []string `json:"remittance_information"`
+			Note                  string   `json:"note"`
+		} `json:"transactions"`
+		ContinuationKey string `json:"continuation_key"`
+	}
+	transactions := make([]Transaction, 0)
+	continuationKey := ""
+	for page := 0; page < 10 && len(transactions) < 1000; page++ {
+		query := url.Values{
+			"date_from":          []string{dateFrom.UTC().Format("2006-01-02")},
+			"date_to":            []string{dateTo.UTC().Format("2006-01-02")},
+			"transaction_status": []string{"BOOK"},
+		}
+		if continuationKey != "" {
+			query.Set("continuation_key", continuationKey)
+		}
+		path := "/accounts/" + url.PathEscape(accountID) + "/transactions?" + query.Encode()
+		var response transactionsResponse
+		if err := c.doJSON(ctx, http.MethodGet, path, nil, &response); err != nil {
+			return nil, err
+		}
+		for _, item := range response.Transactions {
+			transactions = append(transactions, Transaction{
+				Amount: item.Amount.Amount, Currency: item.Amount.Currency,
+				Direction: item.Direction, Status: item.Status,
+				BookingDate: item.BookingDate, TransactionDate: item.TransactionDate, ValueDate: item.ValueDate,
+				CreditorName: item.Creditor.Name, DebtorName: item.Debtor.Name,
+				RemittanceInformation: item.RemittanceInformation, Note: item.Note,
+			})
+			if len(transactions) >= 1000 {
+				break
+			}
+		}
+		continuationKey = response.ContinuationKey
+		if continuationKey == "" {
+			break
+		}
+	}
+	return transactions, nil
 }
 
 func (c *EnableBankingClient) doJSON(ctx context.Context, method, path string, input, output any) error {

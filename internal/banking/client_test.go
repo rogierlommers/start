@@ -42,18 +42,23 @@ func TestEnableBankingClientReadOnlyFlow(t *testing.T) {
 			if access["balances"] != true {
 				t.Fatalf("access = %#v, want balances", access)
 			}
-			if _, found := access["transactions"]; found {
-				t.Fatalf("access = %#v, must not request unused transaction access", access)
+			if access["transactions"] != true {
+				t.Fatalf("access = %#v, want transactions", access)
 			}
 			_, _ = w.Write([]byte(`{"url":"https://auth.enablebanking.test/start"}`))
 		case "/sessions":
-			_, _ = w.Write([]byte(`{"session_id":"session-1","accounts":[{"uid":"account-1","name":"Current account","currency":"EUR"},{"uid":"account-2","product":"Savings account","currency":"EUR"}],"access":{"valid_until":"2027-01-01T00:00:00Z"}}`))
+			_, _ = w.Write([]byte(`{"session_id":"session-1","accounts":[{"uid":"account-1","name":"Current account","currency":"EUR"},{"uid":"account-2","product":"Savings account","currency":"EUR"}],"access":{"valid_until":"2027-01-01T00:00:00Z","transactions":true}}`))
 		case "/sessions/session-1":
-			_, _ = w.Write([]byte(`{"accounts":["account-1","account-2"],"accounts_data":[{"uid":"account-1"},{"uid":"account-2"}],"access":{"valid_until":"2027-01-01T00:00:00Z"}}`))
+			_, _ = w.Write([]byte(`{"accounts":["account-1","account-2"],"accounts_data":[{"uid":"account-1"},{"uid":"account-2"}],"access":{"valid_until":"2027-01-01T00:00:00Z","transactions":true}}`))
 		case "/accounts/account-2/details":
 			_, _ = w.Write([]byte(`{"uid":"account-2","product":"Savings account","currency":"EUR"}`))
 		case "/accounts/account-1/balances":
 			_, _ = w.Write([]byte(`{"balances":[{"name":"Available balance","balance_type":"CLAV","balance_amount":{"amount":"123.45","currency":"EUR"},"last_change_date_time":"2026-10-10T09:00:00Z"}]}`))
+		case "/accounts/account-1/transactions":
+			if r.URL.Query().Get("transaction_status") != "BOOK" || r.URL.Query().Get("date_from") == "" {
+				t.Fatalf("transaction query = %q", r.URL.RawQuery)
+			}
+			_, _ = w.Write([]byte(`{"transactions":[{"transaction_amount":{"amount":"12.34","currency":"EUR"},"credit_debit_indicator":"DBIT","status":"BOOK","booking_date":"2026-10-09","creditor":{"name":"Example Store"},"remittance_information":["Purchase"]}]}`))
 		default:
 			http.NotFound(w, r)
 		}
@@ -88,6 +93,10 @@ func TestEnableBankingClientReadOnlyFlow(t *testing.T) {
 	balances, err := client.GetBalances(context.Background(), session.Accounts[0].ID)
 	if err != nil || len(balances) != 1 || balances[0].Amount != "123.45" {
 		t.Fatalf("GetBalances() = (%+v, %v)", balances, err)
+	}
+	transactions, err := client.GetTransactions(context.Background(), session.Accounts[0].ID, time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC))
+	if err != nil || len(transactions) != 1 || transactions[0].CreditorName != "Example Store" {
+		t.Fatalf("GetTransactions() = (%+v, %v)", transactions, err)
 	}
 }
 

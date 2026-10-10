@@ -33,11 +33,12 @@
         <li>An Enable Banking session identifier and account identifier for each connected account.</li>
         <li>Each account's label, currency, and consent expiry.</li>
         <li>Each current balance and the time it was retrieved.</li>
+        <li>Recent booked transaction amounts, dates, counterparties, and payment descriptions when supplied by ING.</li>
       </ul>
-      <p>START does not receive or store ING login credentials. Balances are not written to the application database. A successful balance response may remain in server memory for up to five minutes to reduce requests and provide a clearly marked saved value during a short provider outage. Transaction access is not currently requested.</p>
+      <p>START does not receive or store ING login credentials. Balances and transactions are not written to the application database. Successful responses may remain in server memory for up to five minutes to reduce requests and provide clearly marked saved values during a short provider outage. Transaction retrieval is limited to booked entries from the last 90 days.</p>
 
       <h2>Purpose and permission</h2>
-      <p>The data is used only to show the operator their requested account balance. The operator explicitly authorizes access in ING's own authentication flow. Consent can be withdrawn through ING or Enable Banking.</p>
+      <p>The data is used only to show the operator their requested account balances and recent transactions. The operator explicitly authorizes access in ING's own authentication flow. Consent can be withdrawn through ING or Enable Banking.</p>
 
       <h2>Storage and retention</h2>
       <p>The connection references remain in the private application database until they are replaced or removed by the operator. Temporary authorization state expires after 15 minutes and can be used only once. Provider consent expires after the period approved during connection.</p>

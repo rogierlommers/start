@@ -24,7 +24,7 @@ ING exposes balance and transaction APIs under PSD2, but its production onboardi
 
 Keep the bank-specific protocol behind the provider client defined in `internal/banking/client.go`. The service layer owns consent state, account selection, caching, and persistence; HTTP handlers only translate redirects and response models.
 
-Request only the data the current UI uses. The first balance slice sends `balances: true` and does not request transactions. Adding a transaction view later requires an explicit consent change rather than pre-authorizing unused financial data.
+Request only the data the current UI uses. The account overview now sends `balances: true` and `transactions: true`; connections created by the earlier balance-only version are marked as needing renewed consent rather than repeatedly attempting unauthorized transaction calls.
 
 Treat the authorization callback as a security boundary:
 
@@ -33,7 +33,7 @@ Treat the authorization callback as a security boundary:
 - Require an HTTPS callback and the existing authenticated dashboard session.
 - Keep the provider RSA key outside the repository and browser.
 
-Persist only the references needed to resume access: provider session ID, account ID, display label, currency, and consent expiry. Treat every account returned by an authorization session as part of one atomic replacement so reconnecting cannot leave removed accounts behind. Do not persist balances or transactions unless a later product requirement needs historical data. Cache each successful balance independently and label only that account as stale when its provider refresh fails.
+Persist only the references needed to resume access: provider session ID, account ID, display label, currency, consent expiry, and whether transaction permission was granted. Treat every account returned by an authorization session as part of one atomic replacement so reconnecting cannot leave removed accounts behind. Do not persist balances or transactions unless a later product requirement needs historical data. Cache each successful balance and recent-transaction response independently, and label only that account as stale when its provider refresh fails.
 
 ## Why This Matters
 
@@ -47,7 +47,7 @@ The aggregator supplies the regulated production connection while the applicatio
 
 ## Examples
 
-`internal/banking/client.go` signs Enable Banking requests with RS256 and bounds provider responses. `internal/service/banking.go` manages one-time consent state, selects the available balance for every connected account, and serves an independent five-minute cache per account. Migration 5 backfills the former singleton connection into an ordered multi-account table without adding balance or transaction rows.
+`internal/banking/client.go` signs Enable Banking requests with RS256 and bounds provider responses. `internal/service/banking.go` manages one-time consent state, selects the available balance for every connected account, and serves independent five-minute balance and transaction caches per account. Migration 5 backfills the former singleton connection into an ordered multi-account table; migration 6 records transaction-consent capability without adding balance or transaction rows.
 
 ## Related
 

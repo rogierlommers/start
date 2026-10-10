@@ -103,4 +103,11 @@ var sqliteMigrations = []sqliteMigration{
 			`CREATE INDEX idx_bank_connections_position ON bank_connections(position, account_id)`,
 		},
 	},
+	{
+		version: 6,
+		name:    "track_bank_transaction_consent",
+		statements: []string{
+			`ALTER TABLE bank_connections ADD COLUMN transactions_enabled INTEGER NOT NULL DEFAULT 0`,
+		},
+	},
 }

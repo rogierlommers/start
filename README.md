@@ -137,8 +137,8 @@ Applied migration versions are tracked in the `schema_migrations` table.
 
 The homepage can show the available balances of personal ING Netherlands accounts through
 [Enable Banking](https://enablebanking.com/). The integration is read-only and requests
-balance access only. It does not receive ING login credentials or persist balances or
-transactions. For each connected account, the SQLite database stores the Enable Banking
+balance and transaction access. It does not receive ING login credentials or persist
+balances or transactions. For each connected account, the SQLite database stores the Enable Banking
 session ID, account ID, account label, currency, and consent expiry needed to refresh the
 balance.
 
@@ -184,6 +184,13 @@ manual refresh bypasses that interval. If one account is temporarily unavailable
 successful refresh, its card displays the cached value while the other accounts continue
 to refresh. ING consent is requested for 180 days; the card prompts for reconnection after
 expiry.
+
+Each account card also shows its five most recent booked transactions from the last 90
+days. Transaction details include the amount, currency, booking date, counterparty, and
+payment description when ING supplies them. Responses are cached independently in memory
+for five minutes and are never written to SQLite. Connections created before transaction
+support remain balance-only until **Reconnect for transactions** is selected and the
+expanded ING consent is approved.
 
 ## Reading List Bookmarklet
 

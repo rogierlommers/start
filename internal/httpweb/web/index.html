@@ -324,7 +324,7 @@
         }
       }
 
-      function renderBankAccount(account) {
+      function renderBankAccount(account, accountIndex) {
         const card = document.createElement('article')
         card.className = 'rounded-xl border border-orange-100 bg-white/80 p-4'
 
@@ -355,7 +355,103 @@
           detail.className = 'mt-1 text-xs text-red-600'
         }
         card.appendChild(detail)
+
+        const transactionsHeading = document.createElement('h4')
+        transactionsHeading.className = 'mt-4 border-t border-orange-100 pt-3 text-xs font-semibold uppercase tracking-wide text-gray-500'
+        transactionsHeading.textContent = 'Recent transactions'
+        card.appendChild(transactionsHeading)
+
+        const transactions = document.createElement('ul')
+        transactions.className = 'mt-1 divide-y divide-gray-100'
+        transactions.dataset.bankTransactionsIndex = String(accountIndex)
+        const loading = document.createElement('li')
+        loading.className = 'py-2 text-xs text-gray-400'
+        loading.textContent = 'Loading transactions…'
+        transactions.appendChild(loading)
+        card.appendChild(transactions)
         return card
+      }
+
+      function formatBankTransactionAmount(transaction) {
+        const numericAmount = Number(transaction.amount)
+        if (!Number.isFinite(numericAmount)) return `${transaction.amount} ${transaction.currency}`
+        const signedAmount = transaction.direction === 'DBIT' ? -Math.abs(numericAmount) : Math.abs(numericAmount)
+        return formatBankBalance(String(signedAmount), transaction.currency)
+      }
+
+      function renderBankTransaction(transaction) {
+        const item = document.createElement('li')
+        item.className = 'flex items-start justify-between gap-3 py-2 text-xs'
+
+        const details = document.createElement('div')
+        details.className = 'min-w-0'
+        const title = document.createElement('div')
+        title.className = 'truncate font-medium text-gray-700'
+        title.textContent = transaction.counterparty || transaction.description || 'Transaction'
+        details.appendChild(title)
+        if (transaction.description && transaction.description !== title.textContent) {
+          const description = document.createElement('div')
+          description.className = 'truncate text-gray-500'
+          description.textContent = transaction.description
+          details.appendChild(description)
+        }
+        const date = document.createElement('time')
+        date.className = 'text-gray-400'
+        date.dateTime = transaction.date
+        date.textContent = transaction.date
+        details.appendChild(date)
+        item.appendChild(details)
+
+        const amount = document.createElement('div')
+        amount.className = `shrink-0 font-medium ${transaction.direction === 'DBIT' ? 'text-gray-700' : 'text-emerald-700'}`
+        amount.textContent = formatBankTransactionAmount(transaction)
+        item.appendChild(amount)
+        return item
+      }
+
+      function setBankTransactionMessage(list, message, className = 'text-gray-400') {
+        list.replaceChildren()
+        const item = document.createElement('li')
+        item.className = `py-2 text-xs ${className}`
+        item.textContent = message
+        list.appendChild(item)
+      }
+
+      async function loadBankTransactions(forceRefresh = false) {
+        const transactionLists = Array.from(document.querySelectorAll('[data-bank-transactions-index]'))
+        if (!transactionLists.length) return
+        const connect = document.getElementById('bank-balance-connect')
+        try {
+          const data = await apiFetch(`/api/banking/transactions?limit=5${forceRefresh ? '&refresh=1' : ''}`)
+          const accounts = data.accounts || []
+          accounts.forEach((account, index) => {
+            const list = transactionLists[index]
+            if (!list) return
+            if (account.status === 'permission_required') {
+              setBankTransactionMessage(list, 'Reconnect ING to allow transaction access.', 'text-amber-700')
+            } else if (account.status === 'reauthorization_required') {
+              setBankTransactionMessage(list, 'ING access has expired.', 'text-amber-700')
+            } else if (account.status === 'unavailable') {
+              setBankTransactionMessage(list, 'Transactions temporarily unavailable.', 'text-red-600')
+            } else if (!(account.transactions || []).length) {
+              setBankTransactionMessage(list, 'No booked transactions in the last 90 days.')
+            } else {
+              list.replaceChildren(...account.transactions.map(renderBankTransaction))
+              if (account.stale) {
+                const stale = document.createElement('li')
+                stale.className = 'py-2 text-xs text-amber-700'
+                stale.textContent = 'Showing saved transaction data.'
+                list.appendChild(stale)
+              }
+            }
+          })
+          if (data.status === 'permission_required') {
+            connect.textContent = 'Reconnect for transactions'
+            connect.classList.remove('hidden')
+          }
+        } catch (_) {
+          transactionLists.forEach(list => setBankTransactionMessage(list, 'Transactions temporarily unavailable.', 'text-red-600'))
+        }
       }
 
       async function loadBankBalance(forceRefresh = false) {
@@ -382,17 +478,18 @@
           } else if (data.status === 'reauthorization_required') {
             status.textContent = 'ING access has expired. Reconnect to refresh the balance.'
             const accounts = data.accounts || []
-            accounts.forEach(account => list.appendChild(renderBankAccount(account)))
+            accounts.forEach((account, index) => list.appendChild(renderBankAccount(account, index)))
             connect.textContent = 'Reconnect ING'
             connect.classList.remove('hidden')
           } else if (data.status === 'connected') {
             const accounts = data.accounts || []
-            accounts.forEach(account => list.appendChild(renderBankAccount(account)))
+            accounts.forEach((account, index) => list.appendChild(renderBankAccount(account, index)))
             const unavailableCount = accounts.filter(account => account.status === 'unavailable').length
             const staleCount = accounts.filter(account => account.stale).length
             status.textContent = `${accounts.length} connected account${accounts.length === 1 ? '' : 's'}${unavailableCount ? ` · ${unavailableCount} unavailable` : ''}${staleCount ? ` · ${staleCount} showing saved data` : ''}`
             status.className = `mt-2 text-xs ${(unavailableCount || staleCount) ? 'text-amber-700' : 'text-gray-500'}`
             refresh.classList.remove('hidden')
+            loadBankTransactions(forceRefresh)
           } else {
             throw new Error('Unknown bank connection status')
           }

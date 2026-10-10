@@ -39,6 +39,23 @@ definitions:
       error:
         type: string
     type: object
+  httpapi.bankAccountTransactionsResponse:
+    properties:
+      account_name:
+        type: string
+      fetched_at:
+        type: string
+      stale:
+        type: boolean
+      status:
+        type: string
+      transactions:
+        items:
+          $ref: '#/definitions/httpapi.bankTransactionResponse'
+        type: array
+      valid_until:
+        type: string
+    type: object
   httpapi.bankBalanceResponse:
     properties:
       account_name:
@@ -89,6 +106,30 @@ definitions:
       status:
         type: string
       valid_until:
+        type: string
+    type: object
+  httpapi.bankTransactionResponse:
+    properties:
+      amount:
+        type: string
+      counterparty:
+        type: string
+      currency:
+        type: string
+      date:
+        type: string
+      description:
+        type: string
+      direction:
+        type: string
+    type: object
+  httpapi.bankTransactionsResponse:
+    properties:
+      accounts:
+        items:
+          $ref: '#/definitions/httpapi.bankAccountTransactionsResponse'
+        type: array
+      status:
         type: string
     type: object
   httpapi.bookmarkCSVRequest:
@@ -301,6 +342,34 @@ paths:
       security:
       - ApiBasicAuth: []
       summary: Get all connected ING account balances
+      tags:
+      - banking
+  /api/banking/transactions:
+    get:
+      parameters:
+      - default: 10
+        description: Transactions per account (1-50)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.bankTransactionsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Get recent booked transactions for all connected ING accounts
       tags:
       - banking
   /api/bimcollab-callback:

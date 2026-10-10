@@ -86,6 +86,20 @@ func TestBankBalanceHandlerDisabled(t *testing.T) {
 	}
 }
 
+func TestBankTransactionsHandlerValidationAndDisabledState(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router, _ := newAPITestRouter(t)
+
+	rec := performJSONRequest(router, http.MethodGet, "/api/banking/transactions?limit=0", "")
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "between 1 and 50") {
+		t.Fatalf("invalid transaction limit response = status %d body %q", rec.Code, rec.Body.String())
+	}
+	rec = performJSONRequest(router, http.MethodGet, "/api/banking/transactions?limit=5", "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"status":"disabled"`) || !strings.Contains(rec.Body.String(), `"accounts":[]`) {
+		t.Fatalf("disabled transactions response = status %d body %q", rec.Code, rec.Body.String())
+	}
+}
+
 func TestDeriveSubjectTrimsAndTruncates(t *testing.T) {
 	if got := deriveSubject("  \n first line \nsecond"); got != "first line" {
 		t.Fatalf("deriveSubject() = %q, want %q", got, "first line")

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -16,9 +17,11 @@ import (
 )
 
 const (
-	bankingStateLifetime = 15 * time.Minute
-	bankingCacheLifetime = 5 * time.Minute
-	bankingConsentDays   = 180
+	bankingStateLifetime   = 15 * time.Minute
+	bankingCacheLifetime   = 5 * time.Minute
+	bankingConsentDays     = 180
+	bankingTransactionDays = 90
+	maxBankTransactions    = 50
 )
 
 var (
@@ -45,6 +48,29 @@ type BankBalanceOverview struct {
 type BankBalancesOverview struct {
 	Status   string
 	Accounts []BankBalanceOverview
+}
+
+type BankTransaction struct {
+	Amount       string
+	Currency     string
+	Direction    string
+	Date         string
+	Counterparty string
+	Description  string
+}
+
+type BankAccountTransactions struct {
+	Status       string
+	AccountName  string
+	Transactions []BankTransaction
+	FetchedAt    time.Time
+	ValidUntil   time.Time
+	Stale        bool
+}
+
+type BankTransactionsOverview struct {
+	Status   string
+	Accounts []BankAccountTransactions
 }
 
 func (s *Service) StartBankAuthorization(ctx context.Context, now time.Time) (string, error) {
@@ -107,6 +133,7 @@ func (s *Service) CompleteBankAuthorization(ctx context.Context, state, code str
 		connections = append(connections, repository.BankConnection{
 			SessionID: session.ID, AccountID: account.ID, AccountName: bankAccountName(account),
 			Currency: account.Currency, ValidUntil: session.ValidUntil, UpdatedAt: now.UTC(),
+			TransactionsEnabled: true,
 		})
 	}
 	s.bankingSyncMu.Lock()
@@ -117,6 +144,7 @@ func (s *Service) CompleteBankAuthorization(ctx context.Context, state, code str
 
 	s.bankingMu.Lock()
 	clear(s.bankingCache)
+	clear(s.bankingTransactionCache)
 	s.bankingAccountsSynced = true
 	s.bankingMu.Unlock()
 	return nil
@@ -240,6 +268,7 @@ func (s *Service) syncBankConnections(ctx context.Context, existing []repository
 		account, detailsErr := s.bankingClient.GetAccountDetails(ctx, sessionAccount.ID)
 		if detailsErr != nil {
 			if persisted, found := existingByID[sessionAccount.ID]; found {
+				persisted.TransactionsEnabled = persisted.TransactionsEnabled || session.TransactionsEnabled
 				connections = append(connections, persisted)
 				continue
 			}
@@ -248,6 +277,7 @@ func (s *Service) syncBankConnections(ctx context.Context, existing []repository
 		connections = append(connections, repository.BankConnection{
 			SessionID: session.ID, AccountID: account.ID, AccountName: bankAccountName(account),
 			Currency: account.Currency, ValidUntil: session.ValidUntil, UpdatedAt: now.UTC(),
+			TransactionsEnabled: session.TransactionsEnabled,
 		})
 	}
 	if len(connections) == 0 {
@@ -260,6 +290,195 @@ func (s *Service) syncBankConnections(ctx context.Context, existing []repository
 	s.bankingAccountsSynced = true
 	s.bankingMu.Unlock()
 	return connections
+}
+
+func (s *Service) GetBankTransactions(ctx context.Context, now time.Time, limit int, forceRefresh bool) (BankTransactionsOverview, error) {
+	if !s.cfg.EnableBankingEnabled() || s.bankingClient == nil {
+		return BankTransactionsOverview{Status: "disabled", Accounts: []BankAccountTransactions{}}, nil
+	}
+	if limit < 1 {
+		limit = 10
+	}
+	if limit > maxBankTransactions {
+		limit = maxBankTransactions
+	}
+	connections, err := s.store.ListBankConnections(ctx)
+	if err != nil {
+		return BankTransactionsOverview{}, fmt.Errorf("load bank connections: %w", err)
+	}
+	if len(connections) == 0 {
+		return BankTransactionsOverview{Status: "disconnected", Accounts: []BankAccountTransactions{}}, nil
+	}
+	connections = s.syncBankConnections(ctx, connections, now)
+
+	s.bankingMu.Lock()
+	cached := make(map[string]BankAccountTransactions, len(s.bankingTransactionCache))
+	for accountID, overview := range s.bankingTransactionCache {
+		cached[accountID] = overview
+	}
+	s.bankingMu.Unlock()
+
+	results := make([]BankAccountTransactions, len(connections))
+	type fetchJob struct {
+		index      int
+		connection repository.BankConnection
+		cached     *BankAccountTransactions
+	}
+	jobs := make(chan fetchJob)
+	var workers sync.WaitGroup
+	workerCount := min(4, len(connections))
+	for range workerCount {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for job := range jobs {
+				results[job.index] = s.fetchBankTransactions(ctx, now, job.connection, job.cached)
+			}
+		}()
+	}
+
+	for index, connection := range connections {
+		if !connection.ValidUntil.After(now) {
+			results[index] = BankAccountTransactions{
+				Status: "reauthorization_required", AccountName: connection.AccountName, ValidUntil: connection.ValidUntil,
+				Transactions: []BankTransaction{},
+			}
+			continue
+		}
+		if !connection.TransactionsEnabled {
+			results[index] = BankAccountTransactions{
+				Status: "permission_required", AccountName: connection.AccountName, ValidUntil: connection.ValidUntil,
+				Transactions: []BankTransaction{},
+			}
+			continue
+		}
+		cachedOverview, hasCache := cached[connection.AccountID]
+		if !forceRefresh && hasCache && cachedOverview.FetchedAt.Add(bankingCacheLifetime).After(now) {
+			results[index] = limitAccountTransactions(cachedOverview, limit)
+			continue
+		}
+		var cachedPointer *BankAccountTransactions
+		if hasCache {
+			copy := cachedOverview
+			cachedPointer = &copy
+		}
+		jobs <- fetchJob{index: index, connection: connection, cached: cachedPointer}
+	}
+	close(jobs)
+	workers.Wait()
+
+	s.bankingMu.Lock()
+	for index, connection := range connections {
+		if results[index].Status == "connected" && !results[index].Stale {
+			s.bankingTransactionCache[connection.AccountID] = results[index]
+		}
+		results[index] = limitAccountTransactions(results[index], limit)
+	}
+	s.bankingMu.Unlock()
+
+	status := "connected"
+	hasPermissionRequired := false
+	allExpired := true
+	for _, result := range results {
+		hasPermissionRequired = hasPermissionRequired || result.Status == "permission_required"
+		allExpired = allExpired && result.Status == "reauthorization_required"
+	}
+	if hasPermissionRequired {
+		status = "permission_required"
+	} else if allExpired {
+		status = "reauthorization_required"
+	}
+	return BankTransactionsOverview{Status: status, Accounts: results}, nil
+}
+
+func (s *Service) fetchBankTransactions(ctx context.Context, now time.Time, connection repository.BankConnection, cached *BankAccountTransactions) BankAccountTransactions {
+	transactions, err := s.bankingClient.GetTransactions(ctx, connection.AccountID, now.AddDate(0, 0, -bankingTransactionDays), now)
+	if err != nil {
+		return unavailableBankTransactions(connection, cached)
+	}
+	mapped := make([]BankTransaction, 0, len(transactions))
+	for _, transaction := range transactions {
+		if !validTransaction(transaction) {
+			continue
+		}
+		mapped = append(mapped, mapBankTransaction(transaction))
+	}
+	sort.SliceStable(mapped, func(i, j int) bool { return mapped[i].Date > mapped[j].Date })
+	if len(mapped) > maxBankTransactions {
+		mapped = mapped[:maxBankTransactions]
+	}
+	return BankAccountTransactions{
+		Status: "connected", AccountName: connection.AccountName, Transactions: mapped,
+		FetchedAt: now.UTC(), ValidUntil: connection.ValidUntil,
+	}
+}
+
+func validTransaction(transaction banking.Transaction) bool {
+	if !bankAmountPattern.MatchString(transaction.Amount) || !bankCurrencyPattern.MatchString(transaction.Currency) {
+		return false
+	}
+	if transaction.Direction != "CRDT" && transaction.Direction != "DBIT" {
+		return false
+	}
+	return transactionDate(transaction) != ""
+}
+
+func mapBankTransaction(transaction banking.Transaction) BankTransaction {
+	counterparty := strings.TrimSpace(transaction.CreditorName)
+	if transaction.Direction == "CRDT" || counterparty == "" {
+		counterparty = strings.TrimSpace(transaction.DebtorName)
+	}
+	description := ""
+	for _, value := range transaction.RemittanceInformation {
+		if value = strings.TrimSpace(value); value != "" {
+			description = value
+			break
+		}
+	}
+	if description == "" {
+		description = strings.TrimSpace(transaction.Note)
+	}
+	return BankTransaction{
+		Amount: transaction.Amount, Currency: transaction.Currency, Direction: transaction.Direction,
+		Date: transactionDate(transaction), Counterparty: truncateText(counterparty, 160),
+		Description: truncateText(description, 240),
+	}
+}
+
+func transactionDate(transaction banking.Transaction) string {
+	for _, value := range []string{transaction.BookingDate, transaction.TransactionDate, transaction.ValueDate} {
+		if _, err := time.Parse("2006-01-02", value); err == nil {
+			return value
+		}
+	}
+	return ""
+}
+
+func truncateText(value string, maxRunes int) string {
+	runes := []rune(value)
+	if len(runes) <= maxRunes {
+		return value
+	}
+	return string(runes[:maxRunes])
+}
+
+func unavailableBankTransactions(connection repository.BankConnection, cached *BankAccountTransactions) BankAccountTransactions {
+	if cached != nil {
+		stale := *cached
+		stale.Stale = true
+		return stale
+	}
+	return BankAccountTransactions{
+		Status: "unavailable", AccountName: connection.AccountName,
+		Transactions: []BankTransaction{}, ValidUntil: connection.ValidUntil,
+	}
+}
+
+func limitAccountTransactions(account BankAccountTransactions, limit int) BankAccountTransactions {
+	if len(account.Transactions) > limit {
+		account.Transactions = account.Transactions[:limit]
+	}
+	return account
 }
 
 func (s *Service) fetchBankBalance(ctx context.Context, now time.Time, connection repository.BankConnection, cached *BankBalanceOverview) BankBalanceOverview {

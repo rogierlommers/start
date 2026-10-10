@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"start/internal/service"
@@ -37,6 +38,29 @@ type bankBalancesResponse struct {
 	FetchedAt    *time.Time `json:"fetched_at,omitempty"`
 	ValidUntil   *time.Time `json:"valid_until,omitempty"`
 	Stale        bool       `json:"stale"`
+}
+
+type bankTransactionResponse struct {
+	Amount       string `json:"amount"`
+	Currency     string `json:"currency"`
+	Direction    string `json:"direction"`
+	Date         string `json:"date"`
+	Counterparty string `json:"counterparty,omitempty"`
+	Description  string `json:"description,omitempty"`
+}
+
+type bankAccountTransactionsResponse struct {
+	Status       string                    `json:"status"`
+	AccountName  string                    `json:"account_name"`
+	Transactions []bankTransactionResponse `json:"transactions"`
+	FetchedAt    *time.Time                `json:"fetched_at,omitempty"`
+	ValidUntil   *time.Time                `json:"valid_until,omitempty"`
+	Stale        bool                      `json:"stale"`
+}
+
+type bankTransactionsResponse struct {
+	Status   string                            `json:"status"`
+	Accounts []bankAccountTransactionsResponse `json:"accounts"`
 }
 
 // getBankBalance godoc
@@ -94,6 +118,59 @@ func bankBalanceAPIResponse(overview service.BankBalanceOverview) bankBalanceRes
 		response.ValidUntil = &validUntil
 	}
 	return response
+}
+
+// getBankTransactions godoc
+// @Summary Get recent booked transactions for all connected ING accounts
+// @Tags banking
+// @Produce json
+// @Security ApiBasicAuth
+// @Param limit query int false "Transactions per account (1-50)" default(10)
+// @Success 200 {object} bankTransactionsResponse
+// @Failure 400 {object} apiErrorResponse
+// @Failure 502 {object} apiErrorResponse
+// @Router /api/banking/transactions [get]
+func (h handlers) getBankTransactions(c *gin.Context) {
+	limit := 10
+	if rawLimit := c.Query("limit"); rawLimit != "" {
+		parsed, err := strconv.Atoi(rawLimit)
+		if err != nil || parsed < 1 || parsed > 50 {
+			c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "limit must be between 1 and 50"})
+			return
+		}
+		limit = parsed
+	}
+	overview, err := h.svc.GetBankTransactions(c.Request.Context(), time.Now(), limit, c.Query("refresh") == "1")
+	if err != nil {
+		c.JSON(http.StatusBadGateway, apiErrorResponse{Error: "failed to load bank transactions"})
+		return
+	}
+	response := bankTransactionsResponse{
+		Status:   overview.Status,
+		Accounts: make([]bankAccountTransactionsResponse, 0, len(overview.Accounts)),
+	}
+	for _, account := range overview.Accounts {
+		mapped := bankAccountTransactionsResponse{
+			Status: account.Status, AccountName: account.AccountName, Stale: account.Stale,
+			Transactions: make([]bankTransactionResponse, 0, len(account.Transactions)),
+		}
+		for _, transaction := range account.Transactions {
+			mapped.Transactions = append(mapped.Transactions, bankTransactionResponse{
+				Amount: transaction.Amount, Currency: transaction.Currency, Direction: transaction.Direction,
+				Date: transaction.Date, Counterparty: transaction.Counterparty, Description: transaction.Description,
+			})
+		}
+		if !account.FetchedAt.IsZero() {
+			fetchedAt := account.FetchedAt
+			mapped.FetchedAt = &fetchedAt
+		}
+		if !account.ValidUntil.IsZero() {
+			validUntil := account.ValidUntil
+			mapped.ValidUntil = &validUntil
+		}
+		response.Accounts = append(response.Accounts, mapped)
+	}
+	c.JSON(http.StatusOK, response)
 }
 
 func (h handlers) connectBank(c *gin.Context) {

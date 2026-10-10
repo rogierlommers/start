@@ -20,7 +20,10 @@ type fakeBankingClient struct {
 	balances             map[string][]banking.Balance
 	balanceErrors        map[string]error
 	accountDetails       map[string]banking.Account
+	transactions         map[string][]banking.Transaction
+	transactionErrors    map[string]error
 	balanceCalls         int
+	transactionCalls     int
 }
 
 func (f *fakeBankingClient) StartAuthorization(_ context.Context, request banking.AuthorizationRequest) (string, error) {
@@ -51,6 +54,13 @@ func (f *fakeBankingClient) GetBalances(_ context.Context, accountID string) ([]
 	return f.balances[accountID], f.balanceErrors[accountID]
 }
 
+func (f *fakeBankingClient) GetTransactions(_ context.Context, accountID string, _, _ time.Time) ([]banking.Transaction, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.transactionCalls++
+	return f.transactions[accountID], f.transactionErrors[accountID]
+}
+
 func TestBankingRecoversAllAccountsFromExistingSession(t *testing.T) {
 	now := time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC)
 	store := repository.NewMemoryStore()
@@ -73,7 +83,8 @@ func TestBankingRecoversAllAccountsFromExistingSession(t *testing.T) {
 			"account-1": {{Type: "CLAV", Amount: "100.00", Currency: "EUR"}},
 			"account-2": {{Type: "CLAV", Amount: "250.00", Currency: "EUR"}},
 		},
-		balanceErrors: make(map[string]error),
+		balanceErrors:     make(map[string]error),
+		transactionErrors: make(map[string]error),
 	}
 	svc := NewWithOptions(store, mailer.DisabledSender{}, bankingConfig(), Options{BankingClient: client})
 	t.Cleanup(svc.Close)
@@ -85,6 +96,10 @@ func TestBankingRecoversAllAccountsFromExistingSession(t *testing.T) {
 	connections, err := store.ListBankConnections(context.Background())
 	if err != nil || len(connections) != 2 || connections[1].AccountName != "Savings account" {
 		t.Fatalf("persisted connections = (%+v, %v)", connections, err)
+	}
+	transactions, err := svc.GetBankTransactions(context.Background(), now, 5, false)
+	if err != nil || transactions.Status != "permission_required" || client.transactionCalls != 0 {
+		t.Fatalf("transactions before renewed consent = (%+v, %v), calls = %d", transactions, err, client.transactionCalls)
 	}
 }
 
@@ -106,6 +121,14 @@ func TestBankingConnectionAndCachedBalance(t *testing.T) {
 			"account-2": {{Type: "CLAV", Name: "Available", Amount: "250.00", Currency: "EUR"}},
 		},
 		balanceErrors: make(map[string]error),
+		transactions: map[string][]banking.Transaction{
+			"account-1": {
+				{Amount: "10.00", Currency: "EUR", Direction: "DBIT", BookingDate: "2026-10-08", CreditorName: "Shop", RemittanceInformation: []string{"Groceries"}},
+				{Amount: "2500.00", Currency: "EUR", Direction: "CRDT", BookingDate: "2026-10-09", DebtorName: "Employer", RemittanceInformation: []string{"Salary"}},
+			},
+			"account-2": {},
+		},
+		transactionErrors: make(map[string]error),
 	}
 	store := repository.NewMemoryStore()
 	svc := NewWithOptions(store, mailer.DisabledSender{}, bankingConfig(), Options{BankingClient: client})
@@ -121,6 +144,10 @@ func TestBankingConnectionAndCachedBalance(t *testing.T) {
 	if err := svc.CompleteBankAuthorization(context.Background(), client.authorizationRequest.State, "code", now); err != nil {
 		t.Fatalf("CompleteBankAuthorization() error = %v", err)
 	}
+	connections, err := store.ListBankConnections(context.Background())
+	if err != nil || len(connections) != 2 || !connections[0].TransactionsEnabled || !connections[1].TransactionsEnabled {
+		t.Fatalf("connections after transaction consent = (%+v, %v)", connections, err)
+	}
 
 	overview, err := svc.GetBankBalances(context.Background(), now, false)
 	if err != nil || len(overview.Accounts) != 2 || overview.Accounts[0].Amount != "100.00" || overview.Accounts[1].Amount != "250.00" {
@@ -135,6 +162,23 @@ func TestBankingConnectionAndCachedBalance(t *testing.T) {
 	stale, err := svc.GetBankBalances(context.Background(), now.Add(10*time.Minute), true)
 	if err != nil || stale.Accounts[0].Stale || !stale.Accounts[1].Stale || stale.Accounts[1].Amount != "250.00" {
 		t.Fatalf("stale GetBankBalances() = (%+v, %v)", stale, err)
+	}
+	transactionOverview, err := svc.GetBankTransactions(context.Background(), now, 1, false)
+	if err != nil || len(transactionOverview.Accounts) != 2 || len(transactionOverview.Accounts[0].Transactions) != 1 {
+		t.Fatalf("GetBankTransactions() = (%+v, %v)", transactionOverview, err)
+	}
+	transaction := transactionOverview.Accounts[0].Transactions[0]
+	if transaction.Counterparty != "Employer" || transaction.Description != "Salary" || transaction.Direction != "CRDT" {
+		t.Fatalf("latest transaction = %+v", transaction)
+	}
+	_, err = svc.GetBankTransactions(context.Background(), now.Add(time.Minute), 5, false)
+	if err != nil || client.transactionCalls != 2 {
+		t.Fatalf("cached GetBankTransactions() error = %v, calls = %d", err, client.transactionCalls)
+	}
+	client.transactionErrors["account-1"] = errors.New("provider down")
+	staleTransactions, err := svc.GetBankTransactions(context.Background(), now.Add(10*time.Minute), 5, true)
+	if err != nil || !staleTransactions.Accounts[0].Stale || len(staleTransactions.Accounts[0].Transactions) != 2 || staleTransactions.Accounts[1].Stale {
+		t.Fatalf("stale GetBankTransactions() = (%+v, %v)", staleTransactions, err)
 	}
 }
 

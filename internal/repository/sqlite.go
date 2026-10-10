@@ -493,7 +493,7 @@ func (s *SQLiteStore) DeleteReadingListItemsOlderThan(ctx context.Context, befor
 
 func (s *SQLiteStore) ListBankConnections(ctx context.Context) ([]BankConnection, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT session_id, account_id, account_name, currency, valid_until, updated_at
+		SELECT session_id, account_id, account_name, currency, valid_until, updated_at, transactions_enabled
 		FROM bank_connections ORDER BY position, account_id
 	`)
 	if err != nil {
@@ -512,6 +512,7 @@ func (s *SQLiteStore) ListBankConnections(ctx context.Context) ([]BankConnection
 			&connection.Currency,
 			&validUntil,
 			&updatedAt,
+			&connection.TransactionsEnabled,
 		); err != nil {
 			return nil, fmt.Errorf("scan bank connection: %w", err)
 		}
@@ -542,8 +543,8 @@ func (s *SQLiteStore) ReplaceBankConnections(ctx context.Context, connections []
 	}
 	for position, connection := range connections {
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO bank_connections(account_id, session_id, account_name, currency, valid_until, updated_at, position)
-			VALUES(?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO bank_connections(account_id, session_id, account_name, currency, valid_until, updated_at, position, transactions_enabled)
+			VALUES(?, ?, ?, ?, ?, ?, ?, ?)
 		`,
 			connection.AccountID,
 			connection.SessionID,
@@ -552,6 +553,7 @@ func (s *SQLiteStore) ReplaceBankConnections(ctx context.Context, connections []
 			connection.ValidUntil.UTC().Format(time.RFC3339Nano),
 			connection.UpdatedAt.UTC().Format(time.RFC3339Nano),
 			position+1,
+			boolToInt(connection.TransactionsEnabled),
 		); err != nil {
 			return fmt.Errorf("insert bank connection: %w", err)
 		}
