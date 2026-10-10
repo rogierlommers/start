@@ -16,26 +16,22 @@ type MemoryStore struct {
 	bookmarks   map[int64]Bookmark
 	bookmarkCSV string
 	reading     map[int64]ReadingListItem
-	bank        *BankConnection
+	banks       []BankConnection
 	nextCatID   int64
 	nextBmkID   int64
 	nextReadID  int64
 }
 
-func (m *MemoryStore) GetBankConnection(_ context.Context) (BankConnection, error) {
+func (m *MemoryStore) ListBankConnections(_ context.Context) ([]BankConnection, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	if m.bank == nil {
-		return BankConnection{}, ErrBankConnectionNotFound
-	}
-	return *m.bank, nil
+	return append([]BankConnection(nil), m.banks...), nil
 }
 
-func (m *MemoryStore) SaveBankConnection(_ context.Context, connection BankConnection) error {
+func (m *MemoryStore) ReplaceBankConnections(_ context.Context, connections []BankConnection) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	copy := connection
-	m.bank = &copy
+	m.banks = append([]BankConnection(nil), connections...)
 	return nil
 }
 

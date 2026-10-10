@@ -84,4 +84,23 @@ var sqliteMigrations = []sqliteMigration{
 			)`,
 		},
 	},
+	{
+		version: 5,
+		name:    "support_multiple_bank_accounts",
+		statements: []string{
+			`CREATE TABLE bank_connections (
+				account_id TEXT PRIMARY KEY,
+				session_id TEXT NOT NULL,
+				account_name TEXT NOT NULL DEFAULT '',
+				currency TEXT NOT NULL DEFAULT '',
+				valid_until TEXT NOT NULL,
+				updated_at TEXT NOT NULL,
+				position INTEGER NOT NULL
+			)`,
+			`INSERT INTO bank_connections(account_id, session_id, account_name, currency, valid_until, updated_at, position)
+			 SELECT account_id, session_id, account_name, currency, valid_until, updated_at, 1
+			 FROM bank_connection`,
+			`CREATE INDEX idx_bank_connections_position ON bank_connections(position, account_id)`,
+		},
+	},
 }

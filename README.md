@@ -135,11 +135,12 @@ Applied migration versions are tracked in the `schema_migrations` table.
 
 ## ING account balance
 
-The homepage can show the available balance of a personal ING Netherlands account through
+The homepage can show the available balances of personal ING Netherlands accounts through
 [Enable Banking](https://enablebanking.com/). The integration is read-only and requests
 balance access only. It does not receive ING login credentials or persist balances or
-transactions. The SQLite database stores the Enable Banking session ID, account ID,
-account label, currency, and consent expiry needed to refresh the balance.
+transactions. For each connected account, the SQLite database stores the Enable Banking
+session ID, account ID, account label, currency, and consent expiry needed to refresh the
+balance.
 
 ### Enable Banking setup
 
@@ -176,13 +177,13 @@ https://your-dashboard.example/terms
 
 After restarting the service, sign in to the dashboard and select **Connect ING**. Enable
 Banking redirects to ING for approval and then returns to the protected callback. The
-application selects the first account returned by ING. If more than one ING account is
-available, account selection is not yet supported.
+application stores and displays every account returned by ING, in provider order.
 
-Successful balance responses are cached in memory for five minutes. A manual refresh
-bypasses that interval. If ING or Enable Banking is temporarily unavailable after a
-successful refresh, the card displays the cached value and marks it as saved data. ING
-consent is requested for 180 days; the card prompts for reconnection after expiry.
+Successful balance responses are cached independently in memory for five minutes. A
+manual refresh bypasses that interval. If one account is temporarily unavailable after a
+successful refresh, its card displays the cached value while the other accounts continue
+to refresh. ING consent is requested for 180 days; the card prompts for reconnection after
+expiry.
 
 ## Reading List Bookmarklet
 

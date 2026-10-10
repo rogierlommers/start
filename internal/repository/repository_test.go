@@ -2,9 +2,10 @@ package repository
 
 import (
 	"context"
-	"errors"
+	"database/sql"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -159,19 +160,86 @@ func TestSQLiteBankConnectionRoundTrip(t *testing.T) {
 	defer store.Close()
 
 	ctx := context.Background()
-	if _, err := store.GetBankConnection(ctx); !errors.Is(err, ErrBankConnectionNotFound) {
-		t.Fatalf("GetBankConnection() error = %v, want %v", err, ErrBankConnectionNotFound)
+	if got, err := store.ListBankConnections(ctx); err != nil || len(got) != 0 {
+		t.Fatalf("ListBankConnections() = (%+v, %v), want empty", got, err)
 	}
-	want := BankConnection{
-		SessionID: "session", AccountID: "account", AccountName: "Current account", Currency: "EUR",
-		ValidUntil: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
-		UpdatedAt:  time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC),
+	want := []BankConnection{
+		{
+			SessionID: "session", AccountID: "account-1", AccountName: "Current account", Currency: "EUR",
+			ValidUntil: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+			UpdatedAt:  time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC),
+		},
+		{
+			SessionID: "session", AccountID: "account-2", AccountName: "Savings account", Currency: "EUR",
+			ValidUntil: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+			UpdatedAt:  time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC),
+		},
 	}
-	if err := store.SaveBankConnection(ctx, want); err != nil {
-		t.Fatalf("SaveBankConnection() error = %v", err)
+	if err := store.ReplaceBankConnections(ctx, want); err != nil {
+		t.Fatalf("ReplaceBankConnections() error = %v", err)
 	}
-	got, err := store.GetBankConnection(ctx)
-	if err != nil || got != want {
-		t.Fatalf("GetBankConnection() = (%+v, %v), want %+v", got, err, want)
+	got, err := store.ListBankConnections(ctx)
+	if err != nil || !reflect.DeepEqual(got, want) {
+		t.Fatalf("ListBankConnections() = (%+v, %v), want %+v", got, err, want)
+	}
+	if err := store.ReplaceBankConnections(ctx, want[1:]); err != nil {
+		t.Fatalf("ReplaceBankConnections(second) error = %v", err)
+	}
+	got, err = store.ListBankConnections(ctx)
+	if err != nil || !reflect.DeepEqual(got, want[1:]) {
+		t.Fatalf("ListBankConnections(after replace) = (%+v, %v), want %+v", got, err, want[1:])
+	}
+	var legacyAccountID string
+	if err := store.db.QueryRowContext(ctx, `SELECT account_id FROM bank_connection WHERE id = 1`).Scan(&legacyAccountID); err != nil {
+		t.Fatalf("read legacy bank connection: %v", err)
+	}
+	if legacyAccountID != "account-2" {
+		t.Fatalf("legacy account ID = %q, want %q", legacyAccountID, "account-2")
+	}
+}
+
+func TestSQLiteMigrationBackfillsExistingBankConnection(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bank-v4.db")
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("sql.Open() error = %v", err)
+	}
+	statements := []string{
+		`CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)`,
+		`INSERT INTO schema_migrations(version, name, applied_at) VALUES
+			(1, 'initial_schema', '2026-10-10T00:00:00Z'),
+			(2, 'add_bookmark_tags', '2026-10-10T00:00:00Z'),
+			(3, 'add_bookmark_csv', '2026-10-10T00:00:00Z'),
+			(4, 'add_bank_connection', '2026-10-10T00:00:00Z')`,
+		`CREATE TABLE bank_connection (
+			id INTEGER PRIMARY KEY CHECK (id = 1),
+			session_id TEXT NOT NULL,
+			account_id TEXT NOT NULL,
+			account_name TEXT NOT NULL DEFAULT '',
+			currency TEXT NOT NULL DEFAULT '',
+			valid_until TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`,
+		`INSERT INTO bank_connection(id, session_id, account_id, account_name, currency, valid_until, updated_at)
+		 VALUES(1, 'session', 'account-1', 'Current account', 'EUR', '2027-01-01T00:00:00Z', '2026-10-10T10:00:00Z')`,
+	}
+	for _, statement := range statements {
+		if _, err := db.Exec(statement); err != nil {
+			_ = db.Close()
+			t.Fatalf("prepare v4 database: %v", err)
+		}
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close v4 database: %v", err)
+	}
+
+	store, err := NewSQLiteStore(path)
+	if err != nil {
+		t.Fatalf("NewSQLiteStore() error = %v", err)
+	}
+	defer store.Close()
+	connections, err := store.ListBankConnections(context.Background())
+	if err != nil || len(connections) != 1 || connections[0].AccountID != "account-1" {
+		t.Fatalf("backfilled connections = (%+v, %v)", connections, err)
 	}
 }

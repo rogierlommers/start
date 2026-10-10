@@ -84,13 +84,14 @@
       <!-- ── Bank balance ─────────────────────────────────────── -->
       <section id="bank-balance-card" class="mb-6 rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-white p-5 shadow-sm" aria-labelledby="bank-balance-heading">
         <div class="flex flex-wrap items-start justify-between gap-4">
-          <div>
+          <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
               <span class="text-xl" aria-hidden="true">🏦</span>
               <h2 id="bank-balance-heading" class="text-base font-semibold text-gray-900">ING balance</h2>
             </div>
-            <div id="bank-balance-amount" class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">—</div>
-            <div id="bank-balance-account" class="mt-1 text-sm text-gray-600"></div>
+            <div id="bank-balances-list" class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div class="text-sm text-gray-500">Loading account balances…</div>
+            </div>
             <div id="bank-balance-status" class="mt-2 text-xs text-gray-500" role="status" aria-live="polite">Loading…</div>
           </div>
           <div class="flex items-center gap-3">
@@ -323,9 +324,42 @@
         }
       }
 
+      function renderBankAccount(account) {
+        const card = document.createElement('article')
+        card.className = 'rounded-xl border border-orange-100 bg-white/80 p-4'
+
+        const name = document.createElement('h3')
+        name.className = 'truncate text-sm font-medium text-gray-700'
+        name.textContent = account.account_name || 'ING account'
+        card.appendChild(name)
+
+        const amount = document.createElement('div')
+        amount.className = 'mt-2 text-2xl font-semibold tracking-tight text-gray-900'
+        amount.textContent = account.status === 'connected'
+          ? formatBankBalance(account.amount, account.currency)
+          : '—'
+        card.appendChild(amount)
+
+        const detail = document.createElement('p')
+        detail.className = 'mt-1 text-xs text-gray-500'
+        if (account.status === 'connected') {
+          const balanceLabel = account.balance_name || account.balance_type || 'Balance'
+          const fetched = account.fetched_at ? fmtDateTime(account.fetched_at) : 'recently'
+          detail.textContent = `${balanceLabel} · updated ${fetched}${account.stale ? ' · showing saved data' : ''}`
+          if (account.stale) detail.className = 'mt-1 text-xs text-amber-700'
+        } else if (account.status === 'reauthorization_required') {
+          detail.textContent = 'ING access has expired.'
+          detail.className = 'mt-1 text-xs text-amber-700'
+        } else {
+          detail.textContent = 'Balance temporarily unavailable.'
+          detail.className = 'mt-1 text-xs text-red-600'
+        }
+        card.appendChild(detail)
+        return card
+      }
+
       async function loadBankBalance(forceRefresh = false) {
-        const amount = document.getElementById('bank-balance-amount')
-        const account = document.getElementById('bank-balance-account')
+        const list = document.getElementById('bank-balances-list')
         const status = document.getElementById('bank-balance-status')
         const refresh = document.getElementById('bank-balance-refresh')
         const connect = document.getElementById('bank-balance-connect')
@@ -335,8 +369,7 @@
 
         try {
           const data = await apiFetch(`/api/banking/balance${forceRefresh ? '?refresh=1' : ''}`)
-          amount.textContent = '—'
-          account.textContent = data.account_name || ''
+          list.replaceChildren()
           refresh.classList.add('hidden')
           connect.classList.add('hidden')
 
@@ -348,20 +381,23 @@
             connect.classList.remove('hidden')
           } else if (data.status === 'reauthorization_required') {
             status.textContent = 'ING access has expired. Reconnect to refresh the balance.'
+            const accounts = data.accounts || []
+            accounts.forEach(account => list.appendChild(renderBankAccount(account)))
             connect.textContent = 'Reconnect ING'
             connect.classList.remove('hidden')
           } else if (data.status === 'connected') {
-            amount.textContent = formatBankBalance(data.amount, data.currency)
-            const balanceLabel = data.balance_name || data.balance_type || 'Balance'
-            const fetched = data.fetched_at ? fmtDateTime(data.fetched_at) : 'recently'
-            status.textContent = `${balanceLabel} · updated ${fetched}${data.stale ? ' · showing saved data' : ''}`
-            status.className = `mt-2 text-xs ${data.stale ? 'text-amber-700' : 'text-gray-500'}`
+            const accounts = data.accounts || []
+            accounts.forEach(account => list.appendChild(renderBankAccount(account)))
+            const unavailableCount = accounts.filter(account => account.status === 'unavailable').length
+            const staleCount = accounts.filter(account => account.stale).length
+            status.textContent = `${accounts.length} connected account${accounts.length === 1 ? '' : 's'}${unavailableCount ? ` · ${unavailableCount} unavailable` : ''}${staleCount ? ` · ${staleCount} showing saved data` : ''}`
+            status.className = `mt-2 text-xs ${(unavailableCount || staleCount) ? 'text-amber-700' : 'text-gray-500'}`
             refresh.classList.remove('hidden')
           } else {
             throw new Error('Unknown bank connection status')
           }
         } catch (err) {
-          amount.textContent = '—'
+          list.replaceChildren()
           status.textContent = 'The balance is temporarily unavailable.'
           status.className = 'mt-2 text-xs text-red-600'
           connect.textContent = 'Reconnect ING'

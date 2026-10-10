@@ -47,7 +47,11 @@ func TestEnableBankingClientReadOnlyFlow(t *testing.T) {
 			}
 			_, _ = w.Write([]byte(`{"url":"https://auth.enablebanking.test/start"}`))
 		case "/sessions":
-			_, _ = w.Write([]byte(`{"session_id":"session-1","accounts":[{"uid":"account-1","name":"Current account","currency":"EUR"}],"access":{"valid_until":"2027-01-01T00:00:00Z"}}`))
+			_, _ = w.Write([]byte(`{"session_id":"session-1","accounts":[{"uid":"account-1","name":"Current account","currency":"EUR"},{"uid":"account-2","product":"Savings account","currency":"EUR"}],"access":{"valid_until":"2027-01-01T00:00:00Z"}}`))
+		case "/sessions/session-1":
+			_, _ = w.Write([]byte(`{"accounts":["account-1","account-2"],"accounts_data":[{"uid":"account-1"},{"uid":"account-2"}],"access":{"valid_until":"2027-01-01T00:00:00Z"}}`))
+		case "/accounts/account-2/details":
+			_, _ = w.Write([]byte(`{"uid":"account-2","product":"Savings account","currency":"EUR"}`))
 		case "/accounts/account-1/balances":
 			_, _ = w.Write([]byte(`{"balances":[{"name":"Available balance","balance_type":"CLAV","balance_amount":{"amount":"123.45","currency":"EUR"},"last_change_date_time":"2026-10-10T09:00:00Z"}]}`))
 		default:
@@ -70,8 +74,16 @@ func TestEnableBankingClientReadOnlyFlow(t *testing.T) {
 		t.Fatalf("StartAuthorization() = (%q, %v)", redirectURL, err)
 	}
 	session, err := client.AuthorizeSession(context.Background(), "code")
-	if err != nil || session.Accounts[0].ID != "account-1" {
+	if err != nil || len(session.Accounts) != 2 || session.Accounts[0].ID != "account-1" || session.Accounts[1].ID != "account-2" {
 		t.Fatalf("AuthorizeSession() = (%+v, %v)", session, err)
+	}
+	recovered, err := client.GetSession(context.Background(), session.ID)
+	if err != nil || len(recovered.Accounts) != 2 || recovered.Accounts[1].ID != "account-2" {
+		t.Fatalf("GetSession() = (%+v, %v)", recovered, err)
+	}
+	details, err := client.GetAccountDetails(context.Background(), recovered.Accounts[1].ID)
+	if err != nil || details.Product != "Savings account" {
+		t.Fatalf("GetAccountDetails() = (%+v, %v)", details, err)
 	}
 	balances, err := client.GetBalances(context.Background(), session.Accounts[0].ID)
 	if err != nil || len(balances) != 1 || balances[0].Amount != "123.45" {

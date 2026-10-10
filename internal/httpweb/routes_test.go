@@ -327,7 +327,9 @@ func TestAppHomeIncludesBankBalanceCard(t *testing.T) {
 	}
 	for _, want := range []string{
 		`id="bank-balance-card"`,
+		`id="bank-balances-list"`,
 		`href="/api/banking/connect"`,
+		`function renderBankAccount`,
 		`async function loadBankBalance`,
 		`/api/banking/balance`,
 	} {

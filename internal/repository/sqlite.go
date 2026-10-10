@@ -491,58 +491,100 @@ func (s *SQLiteStore) DeleteReadingListItemsOlderThan(ctx context.Context, befor
 	return int(rowsAffected), nil
 }
 
-func (s *SQLiteStore) GetBankConnection(ctx context.Context) (BankConnection, error) {
-	var connection BankConnection
-	var validUntil, updatedAt string
-	err := s.db.QueryRowContext(ctx, `
+func (s *SQLiteStore) ListBankConnections(ctx context.Context) ([]BankConnection, error) {
+	rows, err := s.db.QueryContext(ctx, `
 		SELECT session_id, account_id, account_name, currency, valid_until, updated_at
-		FROM bank_connection WHERE id = 1
-	`).Scan(
-		&connection.SessionID,
-		&connection.AccountID,
-		&connection.AccountName,
-		&connection.Currency,
-		&validUntil,
-		&updatedAt,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return BankConnection{}, ErrBankConnectionNotFound
-	}
+		FROM bank_connections ORDER BY position, account_id
+	`)
 	if err != nil {
-		return BankConnection{}, fmt.Errorf("get bank connection: %w", err)
+		return nil, fmt.Errorf("list bank connections: %w", err)
 	}
-	connection.ValidUntil, err = parseSQLiteTime(validUntil)
-	if err != nil {
-		return BankConnection{}, fmt.Errorf("parse bank connection expiry: %w", err)
+	defer rows.Close()
+
+	connections := make([]BankConnection, 0)
+	for rows.Next() {
+		var connection BankConnection
+		var validUntil, updatedAt string
+		if err := rows.Scan(
+			&connection.SessionID,
+			&connection.AccountID,
+			&connection.AccountName,
+			&connection.Currency,
+			&validUntil,
+			&updatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan bank connection: %w", err)
+		}
+		connection.ValidUntil, err = parseSQLiteTime(validUntil)
+		if err != nil {
+			return nil, fmt.Errorf("parse bank connection expiry: %w", err)
+		}
+		connection.UpdatedAt, err = parseSQLiteTime(updatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("parse bank connection update time: %w", err)
+		}
+		connections = append(connections, connection)
 	}
-	connection.UpdatedAt, err = parseSQLiteTime(updatedAt)
-	if err != nil {
-		return BankConnection{}, fmt.Errorf("parse bank connection update time: %w", err)
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate bank connections: %w", err)
 	}
-	return connection, nil
+	return connections, nil
 }
 
-func (s *SQLiteStore) SaveBankConnection(ctx context.Context, connection BankConnection) error {
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO bank_connection(id, session_id, account_id, account_name, currency, valid_until, updated_at)
-		VALUES(1, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(id) DO UPDATE SET
-			session_id = excluded.session_id,
-			account_id = excluded.account_id,
-			account_name = excluded.account_name,
-			currency = excluded.currency,
-			valid_until = excluded.valid_until,
-			updated_at = excluded.updated_at
-	`,
-		connection.SessionID,
-		connection.AccountID,
-		connection.AccountName,
-		connection.Currency,
-		connection.ValidUntil.UTC().Format(time.RFC3339Nano),
-		connection.UpdatedAt.UTC().Format(time.RFC3339Nano),
-	)
+func (s *SQLiteStore) ReplaceBankConnections(ctx context.Context, connections []BankConnection) error {
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("save bank connection: %w", err)
+		return fmt.Errorf("begin replacing bank connections: %w", err)
+	}
+	defer rollbackTx(tx)
+	if _, err := tx.ExecContext(ctx, `DELETE FROM bank_connections`); err != nil {
+		return fmt.Errorf("clear bank connections: %w", err)
+	}
+	for position, connection := range connections {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO bank_connections(account_id, session_id, account_name, currency, valid_until, updated_at, position)
+			VALUES(?, ?, ?, ?, ?, ?, ?)
+		`,
+			connection.AccountID,
+			connection.SessionID,
+			connection.AccountName,
+			connection.Currency,
+			connection.ValidUntil.UTC().Format(time.RFC3339Nano),
+			connection.UpdatedAt.UTC().Format(time.RFC3339Nano),
+			position+1,
+		); err != nil {
+			return fmt.Errorf("insert bank connection: %w", err)
+		}
+	}
+	if len(connections) == 0 {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM bank_connection`); err != nil {
+			return fmt.Errorf("clear legacy bank connection: %w", err)
+		}
+	} else {
+		first := connections[0]
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO bank_connection(id, session_id, account_id, account_name, currency, valid_until, updated_at)
+			VALUES(1, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(id) DO UPDATE SET
+				session_id = excluded.session_id,
+				account_id = excluded.account_id,
+				account_name = excluded.account_name,
+				currency = excluded.currency,
+				valid_until = excluded.valid_until,
+				updated_at = excluded.updated_at
+		`,
+			first.SessionID,
+			first.AccountID,
+			first.AccountName,
+			first.Currency,
+			first.ValidUntil.UTC().Format(time.RFC3339Nano),
+			first.UpdatedAt.UTC().Format(time.RFC3339Nano),
+		); err != nil {
+			return fmt.Errorf("update legacy bank connection: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit bank connections: %w", err)
 	}
 	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"start/internal/banking"
@@ -39,6 +40,11 @@ type BankBalanceOverview struct {
 	FetchedAt    time.Time
 	ValidUntil   time.Time
 	Stale        bool
+}
+
+type BankBalancesOverview struct {
+	Status   string
+	Accounts []BankBalanceOverview
 }
 
 func (s *Service) StartBankAuthorization(ctx context.Context, now time.Time) (string, error) {
@@ -96,72 +102,193 @@ func (s *Service) CompleteBankAuthorization(ctx context.Context, state, code str
 	if err != nil {
 		return fmt.Errorf("complete bank authorization: %w", ErrBankingUnavailable)
 	}
-	account := session.Accounts[0]
-	accountName := strings.TrimSpace(account.Name)
-	if accountName == "" {
-		accountName = strings.TrimSpace(account.Product)
+	connections := make([]repository.BankConnection, 0, len(session.Accounts))
+	for _, account := range session.Accounts {
+		connections = append(connections, repository.BankConnection{
+			SessionID: session.ID, AccountID: account.ID, AccountName: bankAccountName(account),
+			Currency: account.Currency, ValidUntil: session.ValidUntil, UpdatedAt: now.UTC(),
+		})
 	}
-	if accountName == "" {
-		accountName = "ING account"
-	}
-	if err := s.store.SaveBankConnection(ctx, repository.BankConnection{
-		SessionID: session.ID, AccountID: account.ID, AccountName: accountName,
-		Currency: account.Currency, ValidUntil: session.ValidUntil, UpdatedAt: now.UTC(),
-	}); err != nil {
-		return fmt.Errorf("save bank connection: %w", err)
+	s.bankingSyncMu.Lock()
+	defer s.bankingSyncMu.Unlock()
+	if err := s.store.ReplaceBankConnections(ctx, connections); err != nil {
+		return fmt.Errorf("save bank connections: %w", err)
 	}
 
 	s.bankingMu.Lock()
-	s.bankingCache = nil
+	clear(s.bankingCache)
+	s.bankingAccountsSynced = true
 	s.bankingMu.Unlock()
 	return nil
 }
 
-func (s *Service) GetBankBalance(ctx context.Context, now time.Time, forceRefresh bool) (BankBalanceOverview, error) {
+func bankAccountName(account banking.Account) string {
+	if name := strings.TrimSpace(account.Name); name != "" {
+		return name
+	}
+	if product := strings.TrimSpace(account.Product); product != "" {
+		return product
+	}
+	return "ING account"
+}
+
+func (s *Service) GetBankBalances(ctx context.Context, now time.Time, forceRefresh bool) (BankBalancesOverview, error) {
 	if !s.cfg.EnableBankingEnabled() || s.bankingClient == nil {
-		return BankBalanceOverview{Status: "disabled"}, nil
+		return BankBalancesOverview{Status: "disabled", Accounts: []BankBalanceOverview{}}, nil
 	}
-	connection, err := s.store.GetBankConnection(ctx)
-	if errors.Is(err, repository.ErrBankConnectionNotFound) {
-		return BankBalanceOverview{Status: "disconnected"}, nil
-	}
+	connections, err := s.store.ListBankConnections(ctx)
 	if err != nil {
-		return BankBalanceOverview{}, fmt.Errorf("load bank connection: %w", err)
+		return BankBalancesOverview{}, fmt.Errorf("load bank connections: %w", err)
 	}
-	if !connection.ValidUntil.After(now) {
-		return BankBalanceOverview{
-			Status: "reauthorization_required", AccountName: connection.AccountName,
-			Currency: connection.Currency, ValidUntil: connection.ValidUntil,
-		}, nil
+	if len(connections) == 0 {
+		return BankBalancesOverview{Status: "disconnected", Accounts: []BankBalanceOverview{}}, nil
 	}
+	connections = s.syncBankConnections(ctx, connections, now)
 
 	s.bankingMu.Lock()
-	defer s.bankingMu.Unlock()
-	if !forceRefresh && s.bankingCache != nil && s.bankingCache.FetchedAt.Add(bankingCacheLifetime).After(now) {
-		return *s.bankingCache, nil
+	cached := make(map[string]BankBalanceOverview, len(s.bankingCache))
+	for accountID, overview := range s.bankingCache {
+		cached[accountID] = overview
+	}
+	s.bankingMu.Unlock()
+
+	results := make([]BankBalanceOverview, len(connections))
+	type fetchJob struct {
+		index      int
+		connection repository.BankConnection
+		cached     *BankBalanceOverview
+	}
+	jobs := make(chan fetchJob)
+	var workers sync.WaitGroup
+	workerCount := min(4, len(connections))
+	for range workerCount {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			for job := range jobs {
+				results[job.index] = s.fetchBankBalance(ctx, now, job.connection, job.cached)
+			}
+		}()
 	}
 
+	for index, connection := range connections {
+		if !connection.ValidUntil.After(now) {
+			results[index] = BankBalanceOverview{
+				Status: "reauthorization_required", AccountName: connection.AccountName,
+				Currency: connection.Currency, ValidUntil: connection.ValidUntil,
+			}
+			continue
+		}
+		cachedOverview, hasCache := cached[connection.AccountID]
+		if !forceRefresh && hasCache && cachedOverview.FetchedAt.Add(bankingCacheLifetime).After(now) {
+			results[index] = cachedOverview
+			continue
+		}
+		var cachedPointer *BankBalanceOverview
+		if hasCache {
+			copy := cachedOverview
+			cachedPointer = &copy
+		}
+		jobs <- fetchJob{index: index, connection: connection, cached: cachedPointer}
+	}
+	close(jobs)
+	workers.Wait()
+
+	s.bankingMu.Lock()
+	for index, connection := range connections {
+		if results[index].Status == "connected" && !results[index].Stale {
+			s.bankingCache[connection.AccountID] = results[index]
+		}
+	}
+	s.bankingMu.Unlock()
+
+	status := "connected"
+	allExpired := true
+	for _, result := range results {
+		if result.Status != "reauthorization_required" {
+			allExpired = false
+			break
+		}
+	}
+	if allExpired {
+		status = "reauthorization_required"
+	}
+	return BankBalancesOverview{Status: status, Accounts: results}, nil
+}
+
+func (s *Service) syncBankConnections(ctx context.Context, existing []repository.BankConnection, now time.Time) []repository.BankConnection {
+	s.bankingSyncMu.Lock()
+	defer s.bankingSyncMu.Unlock()
+	s.bankingMu.Lock()
+	if s.bankingAccountsSynced {
+		s.bankingMu.Unlock()
+		return existing
+	}
+	s.bankingMu.Unlock()
+
+	session, err := s.bankingClient.GetSession(ctx, existing[0].SessionID)
+	if err != nil {
+		return existing
+	}
+	existingByID := make(map[string]repository.BankConnection, len(existing))
+	for _, connection := range existing {
+		existingByID[connection.AccountID] = connection
+	}
+
+	connections := make([]repository.BankConnection, 0, len(session.Accounts))
+	for _, sessionAccount := range session.Accounts {
+		account, detailsErr := s.bankingClient.GetAccountDetails(ctx, sessionAccount.ID)
+		if detailsErr != nil {
+			if persisted, found := existingByID[sessionAccount.ID]; found {
+				connections = append(connections, persisted)
+				continue
+			}
+			account = sessionAccount
+		}
+		connections = append(connections, repository.BankConnection{
+			SessionID: session.ID, AccountID: account.ID, AccountName: bankAccountName(account),
+			Currency: account.Currency, ValidUntil: session.ValidUntil, UpdatedAt: now.UTC(),
+		})
+	}
+	if len(connections) == 0 {
+		return existing
+	}
+	if err := s.store.ReplaceBankConnections(ctx, connections); err != nil {
+		return existing
+	}
+	s.bankingMu.Lock()
+	s.bankingAccountsSynced = true
+	s.bankingMu.Unlock()
+	return connections
+}
+
+func (s *Service) fetchBankBalance(ctx context.Context, now time.Time, connection repository.BankConnection, cached *BankBalanceOverview) BankBalanceOverview {
 	balances, err := s.bankingClient.GetBalances(ctx, connection.AccountID)
 	if err != nil {
-		if s.bankingCache != nil {
-			stale := *s.bankingCache
-			stale.Stale = true
-			return stale, nil
-		}
-		return BankBalanceOverview{}, fmt.Errorf("refresh bank balance: %w", ErrBankingUnavailable)
+		return unavailableBankBalance(connection, cached)
 	}
 	selected, err := selectBalance(balances)
 	if err != nil {
-		return BankBalanceOverview{}, err
+		return unavailableBankBalance(connection, cached)
 	}
-	overview := BankBalanceOverview{
+	return BankBalanceOverview{
 		Status: "connected", AccountName: connection.AccountName,
 		Amount: selected.Amount, Currency: selected.Currency, BalanceType: selected.Type,
 		BalanceName: selected.Name, ProviderTime: selected.LastChange,
 		FetchedAt: now.UTC(), ValidUntil: connection.ValidUntil,
 	}
-	s.bankingCache = &overview
-	return overview, nil
+}
+
+func unavailableBankBalance(connection repository.BankConnection, cached *BankBalanceOverview) BankBalanceOverview {
+	if cached != nil {
+		stale := *cached
+		stale.Stale = true
+		return stale
+	}
+	return BankBalanceOverview{
+		Status: "unavailable", AccountName: connection.AccountName,
+		Currency: connection.Currency, ValidUntil: connection.ValidUntil,
+	}
 }
 
 func selectBalance(balances []banking.Balance) (banking.Balance, error) {

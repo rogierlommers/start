@@ -21,9 +21,6 @@ var ErrBookmarkAlreadyExists = errors.New("bookmark already exists")
 // ErrInvalidBookmarkOrder is returned when a reorder payload is invalid.
 var ErrInvalidBookmarkOrder = errors.New("invalid bookmark order")
 
-// ErrBankConnectionNotFound is returned before an ING account has been connected.
-var ErrBankConnectionNotFound = errors.New("bank connection not found")
-
 // Category represents a bookmark category.
 type Category struct {
 	ID   int64
@@ -90,8 +87,8 @@ type BankConnection struct {
 }
 
 type BankConnectionStore interface {
-	GetBankConnection(ctx context.Context) (BankConnection, error)
-	SaveBankConnection(ctx context.Context, connection BankConnection) error
+	ListBankConnections(ctx context.Context) ([]BankConnection, error)
+	ReplaceBankConnections(ctx context.Context, connections []BankConnection) error
 }
 
 // Store defines persistence dependencies used by the service layer.
@@ -158,10 +155,10 @@ func (n *NoopStore) DeleteReadingListItemsOlderThan(_ context.Context, _ time.Ti
 	return 0, nil
 }
 
-func (n *NoopStore) GetBankConnection(_ context.Context) (BankConnection, error) {
-	return BankConnection{}, ErrBankConnectionNotFound
+func (n *NoopStore) ListBankConnections(_ context.Context) ([]BankConnection, error) {
+	return []BankConnection{}, nil
 }
 
-func (n *NoopStore) SaveBankConnection(_ context.Context, _ BankConnection) error {
+func (n *NoopStore) ReplaceBankConnections(_ context.Context, _ []BankConnection) error {
 	return nil
 }

@@ -15,16 +15,18 @@ import (
 
 // Service contains application use-cases.
 type Service struct {
-	store         repository.Store
-	mailer        mailer.Sender
-	mailQueue     chan mailTask
-	done          chan struct{}
-	cfg           config.Config
-	httpClient    *http.Client
-	bankingClient banking.Client
-	bankingMu     sync.Mutex
-	bankingStates map[string]time.Time
-	bankingCache  *BankBalanceOverview
+	store                 repository.Store
+	mailer                mailer.Sender
+	mailQueue             chan mailTask
+	done                  chan struct{}
+	cfg                   config.Config
+	httpClient            *http.Client
+	bankingClient         banking.Client
+	bankingMu             sync.Mutex
+	bankingSyncMu         sync.Mutex
+	bankingStates         map[string]time.Time
+	bankingCache          map[string]BankBalanceOverview
+	bankingAccountsSynced bool
 }
 
 type Options struct {
@@ -53,6 +55,7 @@ func NewWithOptions(store repository.Store, sender mailer.Sender, cfg config.Con
 		httpClient:    &http.Client{Timeout: 15 * time.Second},
 		bankingClient: options.BankingClient,
 		bankingStates: make(map[string]time.Time),
+		bankingCache:  make(map[string]BankBalanceOverview),
 	}
 }
 

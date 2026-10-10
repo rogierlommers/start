@@ -1,6 +1,7 @@
 ---
 title: Use a licensed aggregator for personal PSD2 account data
 date: 2026-10-10
+last_updated: 2026-10-10
 category: architecture-patterns
 module: ING account balance
 problem_type: architecture_pattern
@@ -32,7 +33,7 @@ Treat the authorization callback as a security boundary:
 - Require an HTTPS callback and the existing authenticated dashboard session.
 - Keep the provider RSA key outside the repository and browser.
 
-Persist only the references needed to resume access: provider session ID, account ID, display label, currency, and consent expiry. Do not persist balances or transactions unless a later product requirement needs historical data. Cache a successful balance briefly in memory and label it as stale when a provider refresh fails.
+Persist only the references needed to resume access: provider session ID, account ID, display label, currency, and consent expiry. Treat every account returned by an authorization session as part of one atomic replacement so reconnecting cannot leave removed accounts behind. Do not persist balances or transactions unless a later product requirement needs historical data. Cache each successful balance independently and label only that account as stale when its provider refresh fails.
 
 ## Why This Matters
 
@@ -46,7 +47,7 @@ The aggregator supplies the regulated production connection while the applicatio
 
 ## Examples
 
-`internal/banking/client.go` signs Enable Banking requests with RS256 and bounds provider responses. `internal/service/banking.go` manages one-time consent state, selects the available balance, and serves a five-minute cache. Migration 4 stores one singleton bank connection without balances or transaction rows.
+`internal/banking/client.go` signs Enable Banking requests with RS256 and bounds provider responses. `internal/service/banking.go` manages one-time consent state, selects the available balance for every connected account, and serves an independent five-minute cache per account. Migration 5 backfills the former singleton connection into an ordered multi-account table without adding balance or transaction rows.
 
 ## Related
 

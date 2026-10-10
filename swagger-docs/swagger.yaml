@@ -62,6 +62,35 @@ definitions:
       valid_until:
         type: string
     type: object
+  httpapi.bankBalancesResponse:
+    properties:
+      account_name:
+        description: Deprecated single-account fields remain populated from the first
+          account.
+        type: string
+      accounts:
+        items:
+          $ref: '#/definitions/httpapi.bankBalanceResponse'
+        type: array
+      amount:
+        type: string
+      balance_name:
+        type: string
+      balance_type:
+        type: string
+      currency:
+        type: string
+      fetched_at:
+        type: string
+      provider_time:
+        type: string
+      stale:
+        type: boolean
+      status:
+        type: string
+      valid_until:
+        type: string
+    type: object
   httpapi.bookmarkCSVRequest:
     properties:
       content:
@@ -264,14 +293,14 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/httpapi.bankBalanceResponse'
+            $ref: '#/definitions/httpapi.bankBalancesResponse'
         "502":
           description: Bad Gateway
           schema:
             $ref: '#/definitions/httpapi.apiErrorResponse'
       security:
       - ApiBasicAuth: []
-      summary: Get the connected ING account balance
+      summary: Get all connected ING account balances
       tags:
       - banking
   /api/bimcollab-callback:

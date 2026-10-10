@@ -30,6 +30,8 @@ const (
 type Client interface {
 	StartAuthorization(ctx context.Context, request AuthorizationRequest) (string, error)
 	AuthorizeSession(ctx context.Context, code string) (Session, error)
+	GetSession(ctx context.Context, sessionID string) (Session, error)
+	GetAccountDetails(ctx context.Context, accountID string) (Account, error)
 	GetBalances(ctx context.Context, accountID string) ([]Balance, error)
 }
 
@@ -156,15 +158,80 @@ func (c *EnableBankingClient) AuthorizeSession(ctx context.Context, code string)
 		return Session{}, errors.New("Enable Banking returned an invalid consent expiry")
 	}
 	session := Session{ID: response.SessionID, ValidUntil: validUntil}
+	seenAccountIDs := make(map[string]struct{}, len(response.Accounts))
 	for _, account := range response.Accounts {
+		if account.UID == "" {
+			return Session{}, errors.New("Enable Banking returned an account without an ID")
+		}
+		if _, exists := seenAccountIDs[account.UID]; exists {
+			return Session{}, errors.New("Enable Banking returned a duplicate account ID")
+		}
+		seenAccountIDs[account.UID] = struct{}{}
 		session.Accounts = append(session.Accounts, Account{
 			ID: account.UID, Name: account.Name, Product: account.Product, Currency: account.Currency,
 		})
 	}
-	if session.ID == "" || len(session.Accounts) == 0 || session.Accounts[0].ID == "" {
+	if session.ID == "" || len(session.Accounts) == 0 {
 		return Session{}, errors.New("Enable Banking returned no accessible account")
 	}
 	return session, nil
+}
+
+func (c *EnableBankingClient) GetSession(ctx context.Context, sessionID string) (Session, error) {
+	var response struct {
+		Accounts     []string `json:"accounts"`
+		AccountsData []struct {
+			UID string `json:"uid"`
+		} `json:"accounts_data"`
+		Access struct {
+			ValidUntil string `json:"valid_until"`
+		} `json:"access"`
+	}
+	path := "/sessions/" + url.PathEscape(sessionID)
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &response); err != nil {
+		return Session{}, err
+	}
+	validUntil, err := time.Parse(time.RFC3339Nano, response.Access.ValidUntil)
+	if err != nil {
+		return Session{}, errors.New("Enable Banking returned an invalid consent expiry")
+	}
+	accountIDs := response.Accounts
+	if len(response.AccountsData) > 0 {
+		accountIDs = make([]string, 0, len(response.AccountsData))
+		for _, account := range response.AccountsData {
+			accountIDs = append(accountIDs, account.UID)
+		}
+	}
+	seen := make(map[string]struct{}, len(accountIDs))
+	session := Session{ID: sessionID, ValidUntil: validUntil}
+	for _, accountID := range accountIDs {
+		if accountID == "" {
+			return Session{}, errors.New("Enable Banking returned an account without an ID")
+		}
+		if _, exists := seen[accountID]; exists {
+			return Session{}, errors.New("Enable Banking returned a duplicate account ID")
+		}
+		seen[accountID] = struct{}{}
+		session.Accounts = append(session.Accounts, Account{ID: accountID})
+	}
+	if len(session.Accounts) == 0 {
+		return Session{}, errors.New("Enable Banking returned no accessible account")
+	}
+	return session, nil
+}
+
+func (c *EnableBankingClient) GetAccountDetails(ctx context.Context, accountID string) (Account, error) {
+	var response struct {
+		UID      string `json:"uid"`
+		Name     string `json:"name"`
+		Product  string `json:"product"`
+		Currency string `json:"currency"`
+	}
+	path := "/accounts/" + url.PathEscape(accountID) + "/details"
+	if err := c.doJSON(ctx, http.MethodGet, path, nil, &response); err != nil {
+		return Account{}, err
+	}
+	return Account{ID: accountID, Name: response.Name, Product: response.Product, Currency: response.Currency}, nil
 }
 
 func (c *EnableBankingClient) GetBalances(ctx context.Context, accountID string) ([]Balance, error) {

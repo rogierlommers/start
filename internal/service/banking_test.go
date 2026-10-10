@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,10 +14,12 @@ import (
 )
 
 type fakeBankingClient struct {
+	mu                   sync.Mutex
 	authorizationRequest banking.AuthorizationRequest
 	session              banking.Session
-	balances             []banking.Balance
-	balanceErr           error
+	balances             map[string][]banking.Balance
+	balanceErrors        map[string]error
+	accountDetails       map[string]banking.Account
 	balanceCalls         int
 }
 
@@ -29,9 +32,60 @@ func (f *fakeBankingClient) AuthorizeSession(_ context.Context, _ string) (banki
 	return f.session, nil
 }
 
-func (f *fakeBankingClient) GetBalances(_ context.Context, _ string) ([]banking.Balance, error) {
+func (f *fakeBankingClient) GetSession(_ context.Context, _ string) (banking.Session, error) {
+	return f.session, nil
+}
+
+func (f *fakeBankingClient) GetAccountDetails(_ context.Context, accountID string) (banking.Account, error) {
+	account, found := f.accountDetails[accountID]
+	if !found {
+		return banking.Account{}, errors.New("account details unavailable")
+	}
+	return account, nil
+}
+
+func (f *fakeBankingClient) GetBalances(_ context.Context, accountID string) ([]banking.Balance, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.balanceCalls++
-	return f.balances, f.balanceErr
+	return f.balances[accountID], f.balanceErrors[accountID]
+}
+
+func TestBankingRecoversAllAccountsFromExistingSession(t *testing.T) {
+	now := time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC)
+	store := repository.NewMemoryStore()
+	if err := store.ReplaceBankConnections(context.Background(), []repository.BankConnection{{
+		SessionID: "session-1", AccountID: "account-1", AccountName: "Current account",
+		Currency: "EUR", ValidUntil: now.AddDate(0, 0, 180), UpdatedAt: now,
+	}}); err != nil {
+		t.Fatalf("ReplaceBankConnections() error = %v", err)
+	}
+	client := &fakeBankingClient{
+		session: banking.Session{
+			ID: "session-1", ValidUntil: now.AddDate(0, 0, 180),
+			Accounts: []banking.Account{{ID: "account-1"}, {ID: "account-2"}},
+		},
+		accountDetails: map[string]banking.Account{
+			"account-1": {ID: "account-1", Name: "Current account", Currency: "EUR"},
+			"account-2": {ID: "account-2", Name: "Savings account", Currency: "EUR"},
+		},
+		balances: map[string][]banking.Balance{
+			"account-1": {{Type: "CLAV", Amount: "100.00", Currency: "EUR"}},
+			"account-2": {{Type: "CLAV", Amount: "250.00", Currency: "EUR"}},
+		},
+		balanceErrors: make(map[string]error),
+	}
+	svc := NewWithOptions(store, mailer.DisabledSender{}, bankingConfig(), Options{BankingClient: client})
+	t.Cleanup(svc.Close)
+
+	overview, err := svc.GetBankBalances(context.Background(), now, false)
+	if err != nil || len(overview.Accounts) != 2 {
+		t.Fatalf("GetBankBalances() = (%+v, %v), want two accounts", overview, err)
+	}
+	connections, err := store.ListBankConnections(context.Background())
+	if err != nil || len(connections) != 2 || connections[1].AccountName != "Savings account" {
+		t.Fatalf("persisted connections = (%+v, %v)", connections, err)
+	}
 }
 
 func TestBankingConnectionAndCachedBalance(t *testing.T) {
@@ -39,12 +93,19 @@ func TestBankingConnectionAndCachedBalance(t *testing.T) {
 	client := &fakeBankingClient{
 		session: banking.Session{
 			ID: "session-1", ValidUntil: now.AddDate(0, 0, 180),
-			Accounts: []banking.Account{{ID: "account-1", Name: "Oranje account", Currency: "EUR"}},
+			Accounts: []banking.Account{
+				{ID: "account-1", Name: "Oranje account", Currency: "EUR"},
+				{ID: "account-2", Product: "Savings account", Currency: "EUR"},
+			},
 		},
-		balances: []banking.Balance{
-			{Type: "CLBD", Name: "Booked", Amount: "120.00", Currency: "EUR"},
-			{Type: "CLAV", Name: "Available", Amount: "100.00", Currency: "EUR"},
+		balances: map[string][]banking.Balance{
+			"account-1": {
+				{Type: "CLBD", Name: "Booked", Amount: "120.00", Currency: "EUR"},
+				{Type: "CLAV", Name: "Available", Amount: "100.00", Currency: "EUR"},
+			},
+			"account-2": {{Type: "CLAV", Name: "Available", Amount: "250.00", Currency: "EUR"}},
 		},
+		balanceErrors: make(map[string]error),
 	}
 	store := repository.NewMemoryStore()
 	svc := NewWithOptions(store, mailer.DisabledSender{}, bankingConfig(), Options{BankingClient: client})
@@ -61,19 +122,19 @@ func TestBankingConnectionAndCachedBalance(t *testing.T) {
 		t.Fatalf("CompleteBankAuthorization() error = %v", err)
 	}
 
-	overview, err := svc.GetBankBalance(context.Background(), now, false)
-	if err != nil || overview.Amount != "100.00" || overview.BalanceType != "CLAV" {
-		t.Fatalf("GetBankBalance() = (%+v, %v)", overview, err)
+	overview, err := svc.GetBankBalances(context.Background(), now, false)
+	if err != nil || len(overview.Accounts) != 2 || overview.Accounts[0].Amount != "100.00" || overview.Accounts[1].Amount != "250.00" {
+		t.Fatalf("GetBankBalances() = (%+v, %v)", overview, err)
 	}
-	_, err = svc.GetBankBalance(context.Background(), now.Add(time.Minute), false)
-	if err != nil || client.balanceCalls != 1 {
-		t.Fatalf("cached GetBankBalance() error = %v, calls = %d", err, client.balanceCalls)
+	_, err = svc.GetBankBalances(context.Background(), now.Add(time.Minute), false)
+	if err != nil || client.balanceCalls != 2 {
+		t.Fatalf("cached GetBankBalances() error = %v, calls = %d", err, client.balanceCalls)
 	}
 
-	client.balanceErr = errors.New("provider down")
-	stale, err := svc.GetBankBalance(context.Background(), now.Add(10*time.Minute), true)
-	if err != nil || !stale.Stale || stale.Amount != "100.00" {
-		t.Fatalf("stale GetBankBalance() = (%+v, %v)", stale, err)
+	client.balanceErrors["account-2"] = errors.New("provider down")
+	stale, err := svc.GetBankBalances(context.Background(), now.Add(10*time.Minute), true)
+	if err != nil || stale.Accounts[0].Stale || !stale.Accounts[1].Stale || stale.Accounts[1].Amount != "250.00" {
+		t.Fatalf("stale GetBankBalances() = (%+v, %v)", stale, err)
 	}
 }
 
