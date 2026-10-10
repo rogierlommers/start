@@ -81,30 +81,6 @@
 
     <main class="w-[90vw] max-w-none mx-auto px-4 py-8">
 
-      <!-- ── Bank balance ─────────────────────────────────────── -->
-      <section id="bank-balance-card" class="mb-6 rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-white p-5 shadow-sm" aria-labelledby="bank-balance-heading">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2">
-              <span class="text-xl" aria-hidden="true">🏦</span>
-              <h2 id="bank-balance-heading" class="text-base font-semibold text-gray-900">ING balance</h2>
-            </div>
-            <div id="bank-balances-list" class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <div class="text-sm text-gray-500">Loading account balances…</div>
-            </div>
-            <div id="bank-balance-status" class="mt-2 text-xs text-gray-500" role="status" aria-live="polite">Loading…</div>
-          </div>
-          <div class="flex items-center gap-3">
-            <button id="bank-balance-refresh" type="button" onclick="loadBankBalance(true)" class="hidden rounded-lg px-3 py-2 text-xs font-medium text-orange-700 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-400">
-              Refresh
-            </button>
-            <a id="bank-balance-connect" href="/api/banking/connect" class="hidden rounded-lg bg-orange-600 px-3 py-2 text-xs font-medium text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-400">
-              Connect ING
-            </a>
-          </div>
-        </div>
-      </section>
-
       <!-- Tab bar -->
       <div class="flex flex-wrap gap-2 mb-6" role="tablist" aria-label="Dashboard sections">
         <button class="tab-btn flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 border-2 border-transparent hover:border-indigo-200" data-tab="bookmarks" role="tab">
@@ -127,7 +103,35 @@
           <span class="text-lg" aria-hidden="true">🛟</span>
           <span>Incident Manager</span>
         </button>
+        <button class="tab-btn flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 border-2 border-transparent hover:border-orange-200" data-tab="banking" role="tab" type="button" aria-controls="tab-banking">
+          <span class="text-lg" aria-hidden="true">🏦</span>
+          <span>Banking</span>
+        </button>
       </div>
+
+      <!-- ── Banking ──────────────────────────────────────────── -->
+      <section id="tab-banking" class="tab-panel rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-white p-5 shadow-sm" role="tabpanel" aria-labelledby="bank-balance-heading">
+        <div id="bank-balance-card" class="flex flex-wrap items-start justify-between gap-4">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <span class="text-xl" aria-hidden="true">🏦</span>
+              <h2 id="bank-balance-heading" class="text-base font-semibold text-gray-900">ING accounts</h2>
+            </div>
+            <div id="bank-balances-list" class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div class="text-sm text-gray-500">Loading account balances…</div>
+            </div>
+            <div id="bank-balance-status" class="mt-2 text-xs text-gray-500" role="status" aria-live="polite">Loading…</div>
+          </div>
+          <div class="flex items-center gap-3">
+            <button id="bank-balance-refresh" type="button" onclick="loadBankBalance(true)" class="hidden rounded-lg px-3 py-2 text-xs font-medium text-orange-700 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-400">
+              Refresh
+            </button>
+            <a id="bank-balance-connect" href="/api/banking/connect" class="hidden rounded-lg bg-orange-600 px-3 py-2 text-xs font-medium text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-400">
+              Connect ING
+            </a>
+          </div>
+        </div>
+      </section>
 
       <!-- ── Reading List ─────────────────────────────────────── -->
       <section id="tab-reading-list" class="tab-panel bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
@@ -1335,9 +1339,9 @@
           const tabName = btn.dataset.tab
           
           // Remove all color classes
-          btn.classList.remove('text-indigo-600', 'text-rose-600', 'text-amber-600', 'text-emerald-600', 'text-sky-600')
-          btn.classList.remove('bg-indigo-50', 'bg-rose-50', 'bg-amber-50', 'bg-emerald-50', 'bg-sky-50')
-          btn.classList.remove('border-indigo-300', 'border-rose-300', 'border-amber-300', 'border-emerald-300', 'border-sky-300')
+          btn.classList.remove('text-indigo-600', 'text-rose-600', 'text-amber-600', 'text-emerald-600', 'text-sky-600', 'text-orange-600')
+          btn.classList.remove('bg-indigo-50', 'bg-rose-50', 'bg-amber-50', 'bg-emerald-50', 'bg-sky-50', 'bg-orange-50')
+          btn.classList.remove('border-indigo-300', 'border-rose-300', 'border-amber-300', 'border-emerald-300', 'border-sky-300', 'border-orange-300')
           btn.classList.remove('text-gray-500')
           btn.setAttribute('aria-selected', String(active))
           
@@ -1353,6 +1357,8 @@
               btn.classList.add('bg-emerald-50', 'text-emerald-600', 'border-emerald-300')
             } else if (tabName === 'incident-manager') {
               btn.classList.add('bg-sky-50', 'text-sky-600', 'border-sky-300')
+            } else if (tabName === 'banking') {
+              btn.classList.add('bg-orange-50', 'text-orange-600', 'border-orange-300')
             }
           } else {
             // Inactive state

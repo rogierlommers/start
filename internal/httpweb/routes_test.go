@@ -326,6 +326,8 @@ func TestAppHomeIncludesBankBalanceCard(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 	for _, want := range []string{
+		`data-tab="banking"`,
+		`id="tab-banking"`,
 		`id="bank-balance-card"`,
 		`id="bank-balances-list"`,
 		`href="/api/banking/connect"`,
@@ -337,6 +339,7 @@ func TestAppHomeIncludesBankBalanceCard(t *testing.T) {
 		`/api/banking/balance`,
 		`/api/banking/transactions?limit=5`,
 		`/api/banking/accounts/${encodeURIComponent(account.account_key)}/alias`,
+		`tabName === 'banking'`,
 	} {
 		if !strings.Contains(rec.Body.String(), want) {
 			t.Fatalf("home page missing banking marker %q", want)

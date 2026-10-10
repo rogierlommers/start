@@ -135,7 +135,7 @@ Applied migration versions are tracked in the `schema_migrations` table.
 
 ## ING account balance
 
-The homepage can show the available balances of personal ING Netherlands accounts through
+The homepage's **Banking** tab can show the available balances of personal ING Netherlands accounts through
 [Enable Banking](https://enablebanking.com/). The integration is read-only and requests
 balance and transaction access. It does not receive ING login credentials or persist
 balances or transactions. For each connected account, the SQLite database stores the Enable Banking
