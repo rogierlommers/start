@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -83,6 +84,30 @@ func TestBankBalanceHandlerDisabled(t *testing.T) {
 	rec := performJSONRequest(router, http.MethodGet, "/api/banking/balance", "")
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"status":"disabled"`) {
 		t.Fatalf("disabled banking response = status %d body %q", rec.Code, rec.Body.String())
+	}
+}
+
+func TestBankBalancesResponseContainsAccountsOnly(t *testing.T) {
+	encoded, err := json.Marshal(bankBalancesResponse{
+		Status:   "connected",
+		Accounts: []bankBalanceResponse{{AccountName: "Household", Amount: "12.34", Currency: "EUR"}},
+	})
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	var response map[string]any
+	if err := json.Unmarshal(encoded, &response); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if _, exists := response["account_name"]; exists {
+		t.Fatalf("legacy top-level account_name remains in %s", encoded)
+	}
+	if _, exists := response["amount"]; exists {
+		t.Fatalf("legacy top-level amount remains in %s", encoded)
+	}
+	accounts, ok := response["accounts"].([]any)
+	if !ok || len(accounts) != 1 {
+		t.Fatalf("accounts = %#v, want one account", response["accounts"])
 	}
 }
 

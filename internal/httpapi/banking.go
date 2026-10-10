@@ -30,17 +30,6 @@ type bankBalanceResponse struct {
 type bankBalancesResponse struct {
 	Status   string                `json:"status"`
 	Accounts []bankBalanceResponse `json:"accounts"`
-
-	// Deprecated single-account fields remain populated from the first account.
-	AccountName  string     `json:"account_name,omitempty"`
-	Amount       string     `json:"amount,omitempty"`
-	Currency     string     `json:"currency,omitempty"`
-	BalanceType  string     `json:"balance_type,omitempty"`
-	BalanceName  string     `json:"balance_name,omitempty"`
-	ProviderTime *time.Time `json:"provider_time,omitempty"`
-	FetchedAt    *time.Time `json:"fetched_at,omitempty"`
-	ValidUntil   *time.Time `json:"valid_until,omitempty"`
-	Stale        bool       `json:"stale"`
 }
 
 type bankTransactionResponse struct {
@@ -97,18 +86,6 @@ func (h handlers) getBankBalance(c *gin.Context) {
 	}
 	for _, account := range overview.Accounts {
 		response.Accounts = append(response.Accounts, bankBalanceAPIResponse(account))
-	}
-	if len(response.Accounts) > 0 {
-		first := response.Accounts[0]
-		response.AccountName = first.AccountName
-		response.Amount = first.Amount
-		response.Currency = first.Currency
-		response.BalanceType = first.BalanceType
-		response.BalanceName = first.BalanceName
-		response.ProviderTime = first.ProviderTime
-		response.FetchedAt = first.FetchedAt
-		response.ValidUntil = first.ValidUntil
-		response.Stale = first.Stale
 	}
 	c.JSON(http.StatusOK, response)
 }

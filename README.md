@@ -197,6 +197,10 @@ characters. An empty value restores the ING-provided name. Aliases are stored se
 from provider sessions using Enable Banking's stable account identification hash, so they
 survive consent renewal and account-session replacement. They only affect this dashboard.
 
+The protected `GET /api/banking/balance` response contains the overall connection
+`status` and an `accounts` array. Balance fields exist only on entries inside `accounts`;
+the former top-level single-account fields have been removed.
+
 ## Reading List Bookmarklet
 
 Reading-list endpoints:
