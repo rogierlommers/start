@@ -34,6 +34,7 @@ var configEnvKeys = []string{
 	"ENABLE_BANKING_PRIVATE_KEY_PATH",
 	"ENABLE_BANKING_CALLBACK_URL",
 	"ENABLE_BANKING_ASPSP_NAME",
+	"DATA_PROTECTION_EMAIL",
 }
 
 func TestLoadDefaults(t *testing.T) {
@@ -98,6 +99,7 @@ func TestLoadParsesOverrides(t *testing.T) {
 		"ENABLE_BANKING_PRIVATE_KEY_PATH":    "/run/secrets/enable-banking.pem",
 		"ENABLE_BANKING_CALLBACK_URL":        "https://dashboard.example/api/banking/callback",
 		"ENABLE_BANKING_ASPSP_NAME":          "ING NL",
+		"DATA_PROTECTION_EMAIL":              "privacy@example.com",
 	}, true, func() {
 		cfg, err := Load()
 		if err != nil {
@@ -183,7 +185,18 @@ func TestLoadRejectsInvalidValues(t *testing.T) {
 		}},
 		{name: "banking without protected GUI", env: map[string]string{
 			"ENABLE_BANKING_APPLICATION_ID": "app-id", "ENABLE_BANKING_PRIVATE_KEY_PATH": "/key.pem",
+			"ENABLE_BANKING_CALLBACK_URL": "https://dashboard.example/api/banking/callback", "DATA_PROTECTION_EMAIL": "privacy@example.com",
+		}},
+		{name: "banking without data protection email", env: map[string]string{
+			"ENABLE_BANKING_APPLICATION_ID": "app-id", "ENABLE_BANKING_PRIVATE_KEY_PATH": "/key.pem",
 			"ENABLE_BANKING_CALLBACK_URL": "https://dashboard.example/api/banking/callback",
+			"GUI_USERNAME":                "user", "GUI_PASSWORD": "pass", "GUI_SESSION_SECRET": "01234567890123456789012345678901",
+		}},
+		{name: "banking with invalid data protection email", env: map[string]string{
+			"ENABLE_BANKING_APPLICATION_ID": "app-id", "ENABLE_BANKING_PRIVATE_KEY_PATH": "/key.pem",
+			"ENABLE_BANKING_CALLBACK_URL": "https://dashboard.example/api/banking/callback",
+			"GUI_USERNAME":                "user", "GUI_PASSWORD": "pass", "GUI_SESSION_SECRET": "01234567890123456789012345678901",
+			"DATA_PROTECTION_EMAIL": "not-an-email",
 		}},
 	}
 

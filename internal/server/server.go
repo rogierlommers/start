@@ -82,7 +82,7 @@ func NewHTTPServer(cfg config.Config, appBuildTime string) (*ServerContext, erro
 	svc.StartReadingListCleanupWorker()
 	svc.StartIncidentManagerWorker()
 
-	httpweb.RegisterPublic(router, guiAuth)
+	httpweb.RegisterPublicWithContact(router, guiAuth, cfg.DataProtectionEmail)
 	httpapi.RegisterPublic(router, svc, cfg)
 
 	protected := router.Group("")

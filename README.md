@@ -159,12 +159,20 @@ ENABLE_BANKING_APPLICATION_ID='your-application-uuid'
 ENABLE_BANKING_PRIVATE_KEY_PATH='/run/secrets/enable-banking.pem'
 ENABLE_BANKING_CALLBACK_URL='https://your-dashboard.example/api/banking/callback'
 ENABLE_BANKING_ASPSP_NAME='ING'
+DATA_PROTECTION_EMAIL='you@example.com'
 ```
 
 All three required values must be present or all must be empty. The callback must use
 HTTPS. Enabling banking also requires `GUI_USERNAME`, `GUI_PASSWORD`, and a stable
 `GUI_SESSION_SECRET` of at least 32 characters because the banking routes contain
-sensitive financial data.
+sensitive financial data. `DATA_PROTECTION_EMAIL` must be the bare email address
+published on the public `/privacy` and `/terms` pages. Register these URLs with Enable
+Banking:
+
+```text
+https://your-dashboard.example/privacy
+https://your-dashboard.example/terms
+```
 
 After restarting the service, sign in to the dashboard and select **Connect ING**. Enable
 Banking redirects to ING for approval and then returns to the protected callback. The

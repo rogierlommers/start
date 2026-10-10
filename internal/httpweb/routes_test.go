@@ -167,6 +167,38 @@ func TestLogoutRedirectsHomeWithoutAuth(t *testing.T) {
 	}
 }
 
+func TestLegalPagesArePublicAndIncludeConfiguredContact(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	auth := mustNewTestAuth(t)
+	router := gin.New()
+	RegisterPublicWithContact(router, auth, "privacy@example.com")
+
+	for _, test := range []struct {
+		path   string
+		marker string
+		other  string
+	}{
+		{path: "/privacy", marker: "Privacy notice", other: `/terms`},
+		{path: "/terms", marker: "Terms of use", other: `/privacy`},
+	} {
+		req := httptest.NewRequest(http.MethodGet, test.path, nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET %s status = %d, want %d", test.path, rec.Code, http.StatusOK)
+		}
+		body := rec.Body.String()
+		for _, want := range []string{test.marker, "privacy@example.com", test.other} {
+			if !strings.Contains(body, want) {
+				t.Fatalf("GET %s body missing %q", test.path, want)
+			}
+		}
+		if got := rec.Header().Get("Cache-Control"); got != "public, max-age=300" {
+			t.Fatalf("GET %s Cache-Control = %q", test.path, got)
+		}
+	}
+}
+
 func mustNewTestAuth(t *testing.T) *httpmiddleware.GUIAuth {
 	t.Helper()
 

@@ -48,6 +48,7 @@ type Config struct {
 	EnableBankingPrivateKey  string
 	EnableBankingCallbackURL string
 	EnableBankingASPSPName   string
+	DataProtectionEmail      string
 }
 
 // Load reads runtime configuration from environment variables with defaults.
@@ -76,6 +77,7 @@ func Load() (Config, error) {
 		EnableBankingPrivateKey:  strings.TrimSpace(os.Getenv("ENABLE_BANKING_PRIVATE_KEY_PATH")),
 		EnableBankingCallbackURL: strings.TrimSpace(os.Getenv("ENABLE_BANKING_CALLBACK_URL")),
 		EnableBankingASPSPName:   "ING",
+		DataProtectionEmail:      strings.TrimSpace(os.Getenv("DATA_PROTECTION_EMAIL")),
 		EnableAccessLogs:         false, // default to false, can be enabled with env var
 
 		// storage settings
@@ -199,6 +201,16 @@ func validateEnableBankingConfig(cfg Config) error {
 	}
 	if strings.TrimSpace(cfg.GUIUsername) == "" || strings.TrimSpace(cfg.GUIPassword) == "" || len(cfg.GUISessionSecret) < 32 {
 		return fmt.Errorf("Enable Banking requires GUI_USERNAME, GUI_PASSWORD, and GUI_SESSION_SECRET of at least 32 characters")
+	}
+	if cfg.DataProtectionEmail == "" {
+		return fmt.Errorf("DATA_PROTECTION_EMAIL is required when Enable Banking is configured")
+	}
+	address, err := mail.ParseAddress(cfg.DataProtectionEmail)
+	if err != nil {
+		return fmt.Errorf("invalid DATA_PROTECTION_EMAIL value: %w", err)
+	}
+	if address.Address != cfg.DataProtectionEmail {
+		return fmt.Errorf("invalid DATA_PROTECTION_EMAIL value: expected a bare email address")
 	}
 	return nil
 }

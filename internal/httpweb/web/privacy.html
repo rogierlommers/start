@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy notice · START</title>
+    <meta name="description" content="Privacy notice for the START personal dashboard." />
+    <style>
+      :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #f8fafc; color: #0f172a; line-height: 1.65; }
+      main { width: min(760px, calc(100% - 2rem)); margin: 3rem auto; padding: 2rem; background: white; border: 1px solid #e2e8f0; border-radius: 1.25rem; box-shadow: 0 16px 50px rgba(15, 23, 42, .08); }
+      h1 { margin: 0; font-size: clamp(2rem, 6vw, 3rem); line-height: 1.1; }
+      h2 { margin: 2rem 0 .5rem; font-size: 1.15rem; }
+      p, li { color: #475569; }
+      a { color: #c2410c; }
+      .eyebrow { margin: 0 0 .75rem; color: #c2410c; font-size: .75rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+      .updated { margin-top: .75rem; font-size: .875rem; color: #64748b; }
+      nav { display: flex; gap: 1rem; margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid #e2e8f0; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">START personal dashboard</p>
+      <h1>Privacy notice</h1>
+      <p class="updated">Effective 10 October 2026</p>
+
+      <h2>About this application</h2>
+      <p>START is a private, single-user home dashboard. Its optional banking feature lets the operator connect their own ING Netherlands account through Enable Banking and display a read-only account balance.</p>
+
+      <h2>Data the banking feature processes</h2>
+      <ul>
+        <li>An Enable Banking session identifier and account identifier.</li>
+        <li>The account label, currency, and consent expiry.</li>
+        <li>The current balance and the time it was retrieved.</li>
+      </ul>
+      <p>START does not receive or store ING login credentials. Balances are not written to the application database. A successful balance response may remain in server memory for up to five minutes to reduce requests and provide a clearly marked saved value during a short provider outage. Transaction access is not currently requested.</p>
+
+      <h2>Purpose and permission</h2>
+      <p>The data is used only to show the operator their requested account balance. The operator explicitly authorizes access in ING's own authentication flow. Consent can be withdrawn through ING or Enable Banking.</p>
+
+      <h2>Storage and retention</h2>
+      <p>The connection references remain in the private application database until they are replaced or removed by the operator. Temporary authorization state expires after 15 minutes and can be used only once. Provider consent expires after the period approved during connection.</p>
+
+      <h2>Third parties</h2>
+      <p>Enable Banking provides the regulated account-information connection, and ING provides the underlying account data. Their own privacy notices and terms also apply. START does not sell account data or share it for advertising.</p>
+
+      <h2>Security</h2>
+      <p>The dashboard and banking endpoints require authentication. The application uses an HTTPS callback, secure session cookies, short-lived signed provider tokens, and a private signing key stored outside the web application and source repository.</p>
+
+      <h2>Contact</h2>
+      {{if .ContactEmail}}
+      <p>For privacy questions or requests, contact <a href="mailto:{{.ContactEmail}}">{{.ContactEmail}}</a>.</p>
+      {{else}}
+      <p>Use the contact address supplied in the Enable Banking application registration.</p>
+      {{end}}
+
+      <nav aria-label="Legal pages">
+        <a href="/terms">Terms of use</a>
+        <a href="/login">Dashboard sign in</a>
+      </nav>
+    </main>
+  </body>
+</html>

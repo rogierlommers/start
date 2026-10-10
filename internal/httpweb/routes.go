@@ -18,8 +18,16 @@ var indexHTML string
 //go:embed web/login.html
 var loginHTML string
 
+//go:embed web/privacy.html
+var privacyHTML string
+
+//go:embed web/terms.html
+var termsHTML string
+
 var loginPageTemplate = template.Must(template.New("login").Parse(loginHTML))
 var homePageTemplate = template.Must(template.New("index").Parse(indexHTML))
+var privacyPageTemplate = template.Must(template.New("privacy").Parse(privacyHTML))
+var termsPageTemplate = template.Must(template.New("terms").Parse(termsHTML))
 
 type loginPageData struct {
 	Error    string
@@ -32,6 +40,7 @@ type handlers struct {
 	auth         *httpmiddleware.GUIAuth
 	appBuildTime string
 	storageKey   string
+	contactEmail string
 }
 
 type homePageData struct {
@@ -41,11 +50,40 @@ type homePageData struct {
 
 // RegisterPublic registers public HTML routes.
 func RegisterPublic(router gin.IRouter, auth *httpmiddleware.GUIAuth) {
-	h := handlers{auth: auth}
+	RegisterPublicWithContact(router, auth, "")
+}
+
+// RegisterPublicWithContact registers public HTML routes and legal-page contact details.
+func RegisterPublicWithContact(router gin.IRouter, auth *httpmiddleware.GUIAuth, contactEmail string) {
+	h := handlers{auth: auth, contactEmail: strings.TrimSpace(contactEmail)}
 
 	router.GET("/login", h.loginForm)
 	router.POST("/login", h.loginSubmit)
 	router.POST("/logout", h.logout)
+	router.GET("/privacy", h.privacyPage)
+	router.GET("/terms", h.termsPage)
+}
+
+type legalPageData struct {
+	ContactEmail string
+}
+
+func (h handlers) privacyPage(c *gin.Context) {
+	h.renderLegalPage(c, privacyPageTemplate)
+}
+
+func (h handlers) termsPage(c *gin.Context) {
+	h.renderLegalPage(c, termsPageTemplate)
+}
+
+func (h handlers) renderLegalPage(c *gin.Context, pageTemplate *template.Template) {
+	var buf bytes.Buffer
+	if err := pageTemplate.Execute(&buf, legalPageData{ContactEmail: h.contactEmail}); err != nil {
+		c.String(http.StatusInternalServerError, "failed to render legal page")
+		return
+	}
+	c.Header("Cache-Control", "public, max-age=300")
+	c.Data(http.StatusOK, "text/html; charset=utf-8", buf.Bytes())
 }
 
 // Register registers HTML routes.
