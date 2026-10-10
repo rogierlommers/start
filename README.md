@@ -187,6 +187,10 @@ after a successful refresh, its card displays the cached value while the other a
 continue to refresh. ING consent is requested for 180 days; the card prompts for
 reconnection after expiry.
 
+The Banking heading shows the age, in whole minutes, of the oldest balance or transaction
+snapshot currently displayed. The browser recalculates this age every 30 seconds from the
+API's `fetched_at` timestamps, so it continues to advance between background refreshes.
+
 Each account card also shows its five most recent booked transactions from the last 90
 days. Transaction details include the amount, currency, booking date, counterparty, and
 payment description when ING supplies them. Responses are cached independently in memory

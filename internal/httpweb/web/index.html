@@ -328,6 +328,38 @@
         }
       }
 
+      const bankDataFetchedAt = { balances: null, transactions: null }
+
+      function setBankDataFetchedAt(source, accounts) {
+        const fetchedTimes = (accounts || [])
+          .filter(account => account.status === 'connected' && account.fetched_at)
+          .map(account => new Date(account.fetched_at).getTime())
+          .filter(value => Number.isFinite(value))
+        bankDataFetchedAt[source] = fetchedTimes.length ? Math.min(...fetchedTimes) : null
+        updateBankingHeadingAge()
+      }
+
+      function resetBankDataFetchedAt() {
+        bankDataFetchedAt.balances = null
+        bankDataFetchedAt.transactions = null
+        updateBankingHeadingAge()
+      }
+
+      function updateBankingHeadingAge() {
+        const heading = document.getElementById('bank-balance-heading')
+        if (!heading) return
+        const timestamps = Object.values(bankDataFetchedAt).filter(value => Number.isFinite(value))
+        if (!timestamps.length) {
+          heading.textContent = 'ING accounts'
+          heading.removeAttribute('title')
+          return
+        }
+        const oldestFetchedAt = Math.min(...timestamps)
+        const ageMinutes = Math.max(0, Math.floor((Date.now() - oldestFetchedAt) / (60 * 1000)))
+        heading.textContent = `ING accounts (${ageMinutes} minute${ageMinutes === 1 ? '' : 's'} old data)`
+        heading.title = `Oldest displayed banking data fetched at ${new Date(oldestFetchedAt).toLocaleString()}`
+      }
+
       function renderBankAccount(account, accountIndex) {
         const card = document.createElement('article')
         card.className = 'rounded-xl border border-orange-100 bg-white/80 p-4'
@@ -471,6 +503,7 @@
         try {
           const data = await apiFetch(`/api/banking/transactions?limit=5${forceRefresh ? '&refresh=1' : ''}`)
           const accounts = data.accounts || []
+          setBankDataFetchedAt('transactions', accounts)
           accounts.forEach((account, index) => {
             const list = transactionLists[index]
             if (!list) return
@@ -497,6 +530,7 @@
             connect.classList.remove('hidden')
           }
         } catch (_) {
+          setBankDataFetchedAt('transactions', [])
           transactionLists.forEach(list => setBankTransactionMessage(list, 'Transactions temporarily unavailable.', 'text-red-600'))
         }
       }
@@ -517,12 +551,15 @@
           connect.classList.add('hidden')
 
           if (data.status === 'disabled') {
+            resetBankDataFetchedAt()
             status.textContent = 'Configure Enable Banking to show your balance.'
           } else if (data.status === 'disconnected') {
+            resetBankDataFetchedAt()
             status.textContent = 'Connect your ING account to show its available balance.'
             connect.textContent = 'Connect ING'
             connect.classList.remove('hidden')
           } else if (data.status === 'reauthorization_required') {
+            resetBankDataFetchedAt()
             status.textContent = 'ING access has expired. Reconnect to refresh the balance.'
             const accounts = data.accounts || []
             accounts.forEach((account, index) => list.appendChild(renderBankAccount(account, index)))
@@ -530,6 +567,8 @@
             connect.classList.remove('hidden')
           } else if (data.status === 'connected') {
             const accounts = data.accounts || []
+            setBankDataFetchedAt('transactions', [])
+            setBankDataFetchedAt('balances', accounts)
             accounts.forEach((account, index) => list.appendChild(renderBankAccount(account, index)))
             const unavailableCount = accounts.filter(account => account.status === 'unavailable').length
             const staleCount = accounts.filter(account => account.stale).length
@@ -541,6 +580,7 @@
             throw new Error('Unknown bank connection status')
           }
         } catch (err) {
+          resetBankDataFetchedAt()
           list.replaceChildren()
           status.textContent = 'The balance is temporarily unavailable.'
           status.className = 'mt-2 text-xs text-red-600'
@@ -1422,6 +1462,7 @@
       activateTab(savedTab || 'bookmarks')
       renderBuildTime()
       loadBankBalance()
+      setInterval(updateBankingHeadingAge, 30 * 1000)
       initReadingListBookmarklet()
       loadStorageFiles()
       loadReadingListItems()
