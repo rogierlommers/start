@@ -77,6 +77,15 @@ func TestIncidentManagerOverviewHandlerDisabled(t *testing.T) {
 	}
 }
 
+func TestBankBalanceHandlerDisabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router, _ := newAPITestRouter(t)
+	rec := performJSONRequest(router, http.MethodGet, "/api/banking/balance", "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"status":"disabled"`) {
+		t.Fatalf("disabled banking response = status %d body %q", rec.Code, rec.Body.String())
+	}
+}
+
 func TestDeriveSubjectTrimsAndTruncates(t *testing.T) {
 	if got := deriveSubject("  \n first line \nsecond"); got != "first line" {
 		t.Fatalf("deriveSubject() = %q, want %q", got, "first line")

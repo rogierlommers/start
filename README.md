@@ -133,6 +133,49 @@ Database environment variables:
 On startup, the backend automatically applies lightweight, versioned SQLite migrations.
 Applied migration versions are tracked in the `schema_migrations` table.
 
+## ING account balance
+
+The homepage can show the available balance of a personal ING Netherlands account through
+[Enable Banking](https://enablebanking.com/). The integration is read-only and requests
+balance access only. It does not receive ING login credentials or persist balances or
+transactions. The SQLite database stores the Enable Banking session ID, account ID,
+account label, currency, and consent expiry needed to refresh the balance.
+
+### Enable Banking setup
+
+1. Create a production application in the
+   [Enable Banking Control Panel](https://enablebanking.com/cp/applications). Production
+   registration requires a description, GDPR contact email, privacy-policy URL, and
+   terms-of-service URL. Activate personal testing by linking or whitelisting your own
+   account in the Control Panel.
+2. Register this exact HTTPS callback URL for the application:
+   `https://your-dashboard.example/api/banking/callback`.
+3. Store the downloaded RSA private key outside the repository and restrict its file
+   permissions to the service account.
+4. Configure the following environment variables:
+
+```dotenv
+ENABLE_BANKING_APPLICATION_ID='your-application-uuid'
+ENABLE_BANKING_PRIVATE_KEY_PATH='/run/secrets/enable-banking.pem'
+ENABLE_BANKING_CALLBACK_URL='https://your-dashboard.example/api/banking/callback'
+ENABLE_BANKING_ASPSP_NAME='ING'
+```
+
+All three required values must be present or all must be empty. The callback must use
+HTTPS. Enabling banking also requires `GUI_USERNAME`, `GUI_PASSWORD`, and a stable
+`GUI_SESSION_SECRET` of at least 32 characters because the banking routes contain
+sensitive financial data.
+
+After restarting the service, sign in to the dashboard and select **Connect ING**. Enable
+Banking redirects to ING for approval and then returns to the protected callback. The
+application selects the first account returned by ING. If more than one ING account is
+available, account selection is not yet supported.
+
+Successful balance responses are cached in memory for five minutes. A manual refresh
+bypasses that interval. If ING or Enable Banking is temporarily unavailable after a
+successful refresh, the card displays the cached value and marks it as saved data. ING
+consent is requested for 180 days; the card prompts for reconnection after expiry.
+
 ## Reading List Bookmarklet
 
 Reading-list endpoints:

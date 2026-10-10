@@ -32,6 +32,7 @@ type GUIAuth struct {
 	apiPass          string
 	storageSecretKey string
 	secret           []byte
+	secureCookie     bool
 }
 
 // NewGUIAuth builds a GUI auth helper from runtime configuration.
@@ -56,6 +57,7 @@ func NewGUIAuth(cfg config.Config) (*GUIAuth, error) {
 		apiPass:          cfg.APIPassword,
 		storageSecretKey: strings.TrimSpace(cfg.StorageSecretKey),
 		secret:           secret,
+		secureCookie:     cfg.EnableBankingEnabled(),
 	}, nil
 }
 
@@ -115,13 +117,13 @@ func (a *GUIAuth) StartSession(c *gin.Context) {
 	}
 
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(guiSessionCookieName, a.sessionToken(), int(guiSessionTTL.Seconds()), "/", "", c.Request.TLS != nil, true)
+	c.SetCookie(guiSessionCookieName, a.sessionToken(), int(guiSessionTTL.Seconds()), "/", "", a.secureCookie || c.Request.TLS != nil, true)
 }
 
 // ClearSession removes the GUI session cookie.
 func (a *GUIAuth) ClearSession(c *gin.Context) {
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(guiSessionCookieName, "", -1, "/", "", c.Request.TLS != nil, true)
+	c.SetCookie(guiSessionCookieName, "", -1, "/", "", a.secureCookie || c.Request.TLS != nil, true)
 }
 
 // LoginURL returns the login route with a safe post-login redirect target.

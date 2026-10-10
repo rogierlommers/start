@@ -491,6 +491,62 @@ func (s *SQLiteStore) DeleteReadingListItemsOlderThan(ctx context.Context, befor
 	return int(rowsAffected), nil
 }
 
+func (s *SQLiteStore) GetBankConnection(ctx context.Context) (BankConnection, error) {
+	var connection BankConnection
+	var validUntil, updatedAt string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT session_id, account_id, account_name, currency, valid_until, updated_at
+		FROM bank_connection WHERE id = 1
+	`).Scan(
+		&connection.SessionID,
+		&connection.AccountID,
+		&connection.AccountName,
+		&connection.Currency,
+		&validUntil,
+		&updatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return BankConnection{}, ErrBankConnectionNotFound
+	}
+	if err != nil {
+		return BankConnection{}, fmt.Errorf("get bank connection: %w", err)
+	}
+	connection.ValidUntil, err = parseSQLiteTime(validUntil)
+	if err != nil {
+		return BankConnection{}, fmt.Errorf("parse bank connection expiry: %w", err)
+	}
+	connection.UpdatedAt, err = parseSQLiteTime(updatedAt)
+	if err != nil {
+		return BankConnection{}, fmt.Errorf("parse bank connection update time: %w", err)
+	}
+	return connection, nil
+}
+
+func (s *SQLiteStore) SaveBankConnection(ctx context.Context, connection BankConnection) error {
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO bank_connection(id, session_id, account_id, account_name, currency, valid_until, updated_at)
+		VALUES(1, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			session_id = excluded.session_id,
+			account_id = excluded.account_id,
+			account_name = excluded.account_name,
+			currency = excluded.currency,
+			valid_until = excluded.valid_until,
+			updated_at = excluded.updated_at
+	`,
+		connection.SessionID,
+		connection.AccountID,
+		connection.AccountName,
+		connection.Currency,
+		connection.ValidUntil.UTC().Format(time.RFC3339Nano),
+		connection.UpdatedAt.UTC().Format(time.RFC3339Nano),
+	)
+	if err != nil {
+		return fmt.Errorf("save bank connection: %w", err)
+	}
+	return nil
+}
+
 func categoryExists(ctx context.Context, tx *sql.Tx, categoryID int64) (bool, error) {
 	var exists int
 	err := tx.QueryRowContext(ctx, `SELECT 1 FROM categories WHERE id = ? LIMIT 1`, categoryID).Scan(&exists)

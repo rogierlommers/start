@@ -1,7 +1,9 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
+	"start/internal/banking"
 	"start/internal/config"
 	"start/internal/httpapi"
 	"start/internal/httpmiddleware"
@@ -9,6 +11,7 @@ import (
 	"start/internal/mailer"
 	"start/internal/repository"
 	"start/internal/service"
+	"time"
 
 	openapiui "github.com/PeterTakahashi/gin-openapi/openapiui"
 	"github.com/gin-gonic/gin"
@@ -50,6 +53,19 @@ func NewHTTPServer(cfg config.Config, appBuildTime string) (*ServerContext, erro
 		return nil, err
 	}
 
+	var bankingClient banking.Client
+	if cfg.EnableBankingEnabled() {
+		bankingClient, err = banking.NewEnableBankingClient(
+			cfg.EnableBankingAppID,
+			cfg.EnableBankingPrivateKey,
+			&http.Client{Timeout: 15 * time.Second},
+		)
+		if err != nil {
+			_ = store.Close()
+			return nil, fmt.Errorf("configure Enable Banking: %w", err)
+		}
+	}
+
 	// mailer setup, using SMTP if configured, otherwise a disabled sender
 	var sender mailer.Sender = mailer.DisabledSender{}
 	if cfg.SMTPHost != "" && cfg.SMTPFrom != "" {
@@ -58,7 +74,7 @@ func NewHTTPServer(cfg config.Config, appBuildTime string) (*ServerContext, erro
 	}
 
 	// service layer
-	svc := service.New(store, sender, cfg)
+	svc := service.NewWithOptions(store, sender, cfg, service.Options{BankingClient: bankingClient})
 
 	// start background workers
 	svc.StartMailWorker()

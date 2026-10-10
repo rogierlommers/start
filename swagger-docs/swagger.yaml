@@ -39,6 +39,29 @@ definitions:
       error:
         type: string
     type: object
+  httpapi.bankBalanceResponse:
+    properties:
+      account_name:
+        type: string
+      amount:
+        type: string
+      balance_name:
+        type: string
+      balance_type:
+        type: string
+      currency:
+        type: string
+      fetched_at:
+        type: string
+      provider_time:
+        type: string
+      stale:
+        type: boolean
+      status:
+        type: string
+      valid_until:
+        type: string
+    type: object
   httpapi.bookmarkCSVRequest:
     properties:
       content:
@@ -233,6 +256,24 @@ info:
   title: start API
   version: 0.1.0
 paths:
+  /api/banking/balance:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.bankBalanceResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Get the connected ING account balance
+      tags:
+      - banking
   /api/bimcollab-callback:
     get:
       description: Emails a report containing all incoming request headers and the

@@ -81,6 +81,29 @@
 
     <main class="w-[90vw] max-w-none mx-auto px-4 py-8">
 
+      <!-- ── Bank balance ─────────────────────────────────────── -->
+      <section id="bank-balance-card" class="mb-6 rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-white p-5 shadow-sm" aria-labelledby="bank-balance-heading">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xl" aria-hidden="true">🏦</span>
+              <h2 id="bank-balance-heading" class="text-base font-semibold text-gray-900">ING balance</h2>
+            </div>
+            <div id="bank-balance-amount" class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">—</div>
+            <div id="bank-balance-account" class="mt-1 text-sm text-gray-600"></div>
+            <div id="bank-balance-status" class="mt-2 text-xs text-gray-500" role="status" aria-live="polite">Loading…</div>
+          </div>
+          <div class="flex items-center gap-3">
+            <button id="bank-balance-refresh" type="button" onclick="loadBankBalance(true)" class="hidden rounded-lg px-3 py-2 text-xs font-medium text-orange-700 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-400">
+              Refresh
+            </button>
+            <a id="bank-balance-connect" href="/api/banking/connect" class="hidden rounded-lg bg-orange-600 px-3 py-2 text-xs font-medium text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-400">
+              Connect ING
+            </a>
+          </div>
+        </div>
+      </section>
+
       <!-- Tab bar -->
       <div class="flex flex-wrap gap-2 mb-6" role="tablist" aria-label="Dashboard sections">
         <button class="tab-btn flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 border-2 border-transparent hover:border-indigo-200" data-tab="bookmarks" role="tab">
@@ -288,6 +311,64 @@
         const ct = res.headers.get('content-type') || ''
         if (ct.includes('application/json')) return res.json()
         return null
+      }
+
+      function formatBankBalance(amount, currency) {
+        const numericAmount = Number(amount)
+        if (!Number.isFinite(numericAmount)) return `${amount} ${currency}`
+        try {
+          return new Intl.NumberFormat('nl-NL', { style: 'currency', currency }).format(numericAmount)
+        } catch (_) {
+          return `${amount} ${currency}`
+        }
+      }
+
+      async function loadBankBalance(forceRefresh = false) {
+        const amount = document.getElementById('bank-balance-amount')
+        const account = document.getElementById('bank-balance-account')
+        const status = document.getElementById('bank-balance-status')
+        const refresh = document.getElementById('bank-balance-refresh')
+        const connect = document.getElementById('bank-balance-connect')
+        refresh.disabled = true
+        status.textContent = forceRefresh ? 'Refreshing…' : 'Loading…'
+        status.className = 'mt-2 text-xs text-gray-500'
+
+        try {
+          const data = await apiFetch(`/api/banking/balance${forceRefresh ? '?refresh=1' : ''}`)
+          amount.textContent = '—'
+          account.textContent = data.account_name || ''
+          refresh.classList.add('hidden')
+          connect.classList.add('hidden')
+
+          if (data.status === 'disabled') {
+            status.textContent = 'Configure Enable Banking to show your balance.'
+          } else if (data.status === 'disconnected') {
+            status.textContent = 'Connect your ING account to show its available balance.'
+            connect.textContent = 'Connect ING'
+            connect.classList.remove('hidden')
+          } else if (data.status === 'reauthorization_required') {
+            status.textContent = 'ING access has expired. Reconnect to refresh the balance.'
+            connect.textContent = 'Reconnect ING'
+            connect.classList.remove('hidden')
+          } else if (data.status === 'connected') {
+            amount.textContent = formatBankBalance(data.amount, data.currency)
+            const balanceLabel = data.balance_name || data.balance_type || 'Balance'
+            const fetched = data.fetched_at ? fmtDateTime(data.fetched_at) : 'recently'
+            status.textContent = `${balanceLabel} · updated ${fetched}${data.stale ? ' · showing saved data' : ''}`
+            status.className = `mt-2 text-xs ${data.stale ? 'text-amber-700' : 'text-gray-500'}`
+            refresh.classList.remove('hidden')
+          } else {
+            throw new Error('Unknown bank connection status')
+          }
+        } catch (err) {
+          amount.textContent = '—'
+          status.textContent = 'The balance is temporarily unavailable.'
+          status.className = 'mt-2 text-xs text-red-600'
+          connect.textContent = 'Reconnect ING'
+          connect.classList.remove('hidden')
+        } finally {
+          refresh.disabled = false
+        }
       }
 
       function fmt(bytes) {
@@ -1146,9 +1227,19 @@
       })
 
       // ── Init ─────────────────────────────────────────────────
+      const bankingResult = new URLSearchParams(window.location.search).get('banking')
+      if (bankingResult) {
+        if (bankingResult === 'connected') toast('ING account connected')
+        else if (bankingResult === 'cancelled') toast('ING connection cancelled', 'warn')
+        else toast('ING account could not be connected', 'error')
+        const cleanURL = new URL(window.location.href)
+        cleanURL.searchParams.delete('banking')
+        window.history.replaceState({}, '', cleanURL.pathname + cleanURL.search + cleanURL.hash)
+      }
       const savedTab = (() => { try { return sessionStorage.getItem(TAB_STORAGE_KEY) } catch (_) { return null } })()
       activateTab(savedTab || 'bookmarks')
       renderBuildTime()
+      loadBankBalance()
       initReadingListBookmarklet()
       loadStorageFiles()
       loadReadingListItems()

@@ -30,6 +30,10 @@ var configEnvKeys = []string{
 	"INCIDENT_MANAGER_NOTIFICATION_TIME",
 	"SMTP_PORT",
 	"ENABLE_ACCESS_LOGS",
+	"ENABLE_BANKING_APPLICATION_ID",
+	"ENABLE_BANKING_PRIVATE_KEY_PATH",
+	"ENABLE_BANKING_CALLBACK_URL",
+	"ENABLE_BANKING_ASPSP_NAME",
 }
 
 func TestLoadDefaults(t *testing.T) {
@@ -90,6 +94,10 @@ func TestLoadParsesOverrides(t *testing.T) {
 		"INCIDENT_MANAGER_NOTIFICATION_TIME": "16:30",
 		"SMTP_PORT":                          "2525",
 		"ENABLE_ACCESS_LOGS":                 "true",
+		"ENABLE_BANKING_APPLICATION_ID":      "app-id",
+		"ENABLE_BANKING_PRIVATE_KEY_PATH":    "/run/secrets/enable-banking.pem",
+		"ENABLE_BANKING_CALLBACK_URL":        "https://dashboard.example/api/banking/callback",
+		"ENABLE_BANKING_ASPSP_NAME":          "ING NL",
 	}, true, func() {
 		cfg, err := Load()
 		if err != nil {
@@ -138,6 +146,9 @@ func TestLoadParsesOverrides(t *testing.T) {
 		if !cfg.EnableAccessLogs {
 			t.Fatal("EnableAccessLogs = false, want true")
 		}
+		if !cfg.EnableBankingEnabled() || cfg.EnableBankingASPSPName != "ING NL" {
+			t.Fatalf("Enable Banking settings = %+v", cfg)
+		}
 	})
 }
 
@@ -165,6 +176,15 @@ func TestLoadRejectsInvalidValues(t *testing.T) {
 		{name: "missing incident recipient", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "https://example.com/duty.ics"}},
 		{name: "invalid incident feed URL", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "file:///tmp/duty.ics", "MAILER_EMAIL_WORK": "work@example.com"}},
 		{name: "invalid incident recipient", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "https://example.com/duty.ics", "MAILER_EMAIL_WORK": "not-an-email"}},
+		{name: "partial banking config", env: map[string]string{"ENABLE_BANKING_APPLICATION_ID": "app-id"}},
+		{name: "insecure banking callback", env: map[string]string{
+			"ENABLE_BANKING_APPLICATION_ID": "app-id", "ENABLE_BANKING_PRIVATE_KEY_PATH": "/key.pem",
+			"ENABLE_BANKING_CALLBACK_URL": "http://dashboard.example/api/banking/callback",
+		}},
+		{name: "banking without protected GUI", env: map[string]string{
+			"ENABLE_BANKING_APPLICATION_ID": "app-id", "ENABLE_BANKING_PRIVATE_KEY_PATH": "/key.pem",
+			"ENABLE_BANKING_CALLBACK_URL": "https://dashboard.example/api/banking/callback",
+		}},
 	}
 
 	for _, tt := range tests {

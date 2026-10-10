@@ -57,6 +57,14 @@ func TestNewHTTPServerBuildsRouterAndServesRoutes(t *testing.T) {
 		t.Fatalf("GET /api/incident-manager status = %d, want %d without authentication", rec.Code, http.StatusUnauthorized)
 	}
 
+	req = httptest.NewRequest(http.MethodGet, "/api/banking/balance", nil)
+	req.Header.Set("Accept", "application/json")
+	rec = httptest.NewRecorder()
+	ctx.Server.Handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("GET /api/banking/balance status = %d, want %d without authentication", rec.Code, http.StatusUnauthorized)
+	}
+
 	req = httptest.NewRequest(http.MethodGet, "/login", nil)
 	rec = httptest.NewRecorder()
 	ctx.Server.Handler.ServeHTTP(rec, req)

@@ -2,8 +2,10 @@ package service
 
 import (
 	"net/http"
+	"sync"
 	"time"
 
+	"start/internal/banking"
 	"start/internal/config"
 	"start/internal/mailer"
 	"start/internal/repository"
@@ -13,12 +15,20 @@ import (
 
 // Service contains application use-cases.
 type Service struct {
-	store      repository.Store
-	mailer     mailer.Sender
-	mailQueue  chan mailTask
-	done       chan struct{}
-	cfg        config.Config
-	httpClient *http.Client
+	store         repository.Store
+	mailer        mailer.Sender
+	mailQueue     chan mailTask
+	done          chan struct{}
+	cfg           config.Config
+	httpClient    *http.Client
+	bankingClient banking.Client
+	bankingMu     sync.Mutex
+	bankingStates map[string]time.Time
+	bankingCache  *BankBalanceOverview
+}
+
+type Options struct {
+	BankingClient banking.Client
 }
 
 type mailTask struct {
@@ -26,17 +36,23 @@ type mailTask struct {
 }
 
 func New(store repository.Store, sender mailer.Sender, cfg config.Config) *Service {
+	return NewWithOptions(store, sender, cfg, Options{})
+}
+
+func NewWithOptions(store repository.Store, sender mailer.Sender, cfg config.Config, options Options) *Service {
 	if sender == nil {
 		sender = mailer.DisabledSender{}
 	}
 
 	return &Service{
-		store:      store,
-		mailer:     sender,
-		mailQueue:  make(chan mailTask, 100), // buffered queue for up to 100 pending emails
-		done:       make(chan struct{}),
-		cfg:        cfg,
-		httpClient: &http.Client{Timeout: 15 * time.Second},
+		store:         store,
+		mailer:        sender,
+		mailQueue:     make(chan mailTask, 100), // buffered queue for up to 100 pending emails
+		done:          make(chan struct{}),
+		cfg:           cfg,
+		httpClient:    &http.Client{Timeout: 15 * time.Second},
+		bankingClient: options.BankingClient,
+		bankingStates: make(map[string]time.Time),
 	}
 }
 

@@ -69,4 +69,19 @@ var sqliteMigrations = []sqliteMigration{
 			)`,
 		},
 	},
+	{
+		version: 4,
+		name:    "add_bank_connection",
+		statements: []string{
+			`CREATE TABLE bank_connection (
+				id INTEGER PRIMARY KEY CHECK (id = 1),
+				session_id TEXT NOT NULL,
+				account_id TEXT NOT NULL,
+				account_name TEXT NOT NULL DEFAULT '',
+				currency TEXT NOT NULL DEFAULT '',
+				valid_until TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+		},
+	},
 }

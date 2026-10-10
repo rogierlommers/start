@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"start/internal/config"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -94,6 +95,26 @@ func TestRequireAuthAllowsValidSession(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestBankingConfigurationForcesSecureSessionCookie(t *testing.T) {
+	auth, err := NewGUIAuth(config.Config{
+		GUIUsername: "user", GUIPassword: "pass",
+		GUISessionSecret:   "01234567890123456789012345678901",
+		EnableBankingAppID: "app", EnableBankingPrivateKey: "/key.pem",
+		EnableBankingCallbackURL: "https://dashboard.example/api/banking/callback",
+	})
+	if err != nil {
+		t.Fatalf("NewGUIAuth() error = %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "http://internal.example/", nil)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	auth.StartSession(c)
+	if !strings.Contains(rec.Header().Get("Set-Cookie"), "; Secure") {
+		t.Fatalf("Set-Cookie = %q, want Secure attribute", rec.Header().Get("Set-Cookie"))
 	}
 }
 

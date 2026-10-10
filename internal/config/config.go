@@ -19,31 +19,35 @@ const (
 
 // Config contains runtime settings sourced from environment variables.
 type Config struct {
-	HostPort                string
-	ShutdownTimeout         time.Duration
-	ReadHeaderTimeout       time.Duration
-	EnableAccessLogs        bool
-	LogLevel                string
-	SQLitePath              string
-	StorageUploadDir        string
-	StorageSecretKey        string
-	StorageMaxUploadMB      int64
-	StorageCleanupDays      int
-	ReadingListCleanupDays  int
-	SMTPHost                string
-	SMTPPort                int
-	SMTPUsername            string
-	SMTPPassword            string
-	SMTPFrom                string
-	MailerEmailPrivate      string
-	MailerEmailWork         string
-	IncidentManagerICALURL  string
-	IncidentManagerNotifyAt string
-	GUIUsername             string
-	GUIPassword             string
-	GUISessionSecret        string
-	APIUsername             string
-	APIPassword             string
+	HostPort                 string
+	ShutdownTimeout          time.Duration
+	ReadHeaderTimeout        time.Duration
+	EnableAccessLogs         bool
+	LogLevel                 string
+	SQLitePath               string
+	StorageUploadDir         string
+	StorageSecretKey         string
+	StorageMaxUploadMB       int64
+	StorageCleanupDays       int
+	ReadingListCleanupDays   int
+	SMTPHost                 string
+	SMTPPort                 int
+	SMTPUsername             string
+	SMTPPassword             string
+	SMTPFrom                 string
+	MailerEmailPrivate       string
+	MailerEmailWork          string
+	IncidentManagerICALURL   string
+	IncidentManagerNotifyAt  string
+	GUIUsername              string
+	GUIPassword              string
+	GUISessionSecret         string
+	APIUsername              string
+	APIPassword              string
+	EnableBankingAppID       string
+	EnableBankingPrivateKey  string
+	EnableBankingCallbackURL string
+	EnableBankingASPSPName   string
 }
 
 // Load reads runtime configuration from environment variables with defaults.
@@ -60,15 +64,19 @@ func Load() (Config, error) {
 		ReadHeaderTimeout: defaultReadHeaderTimeout,
 
 		// server settings
-		HostPort:         os.Getenv("HTTP_BIND_ADDR"),
-		LogLevel:         os.Getenv("LOG_LEVEL"),
-		SQLitePath:       os.Getenv("SQLITE_PATH"),
-		GUIUsername:      os.Getenv("GUI_USERNAME"),
-		GUIPassword:      os.Getenv("GUI_PASSWORD"),
-		GUISessionSecret: os.Getenv("GUI_SESSION_SECRET"),
-		APIUsername:      os.Getenv("API_USERNAME"),
-		APIPassword:      os.Getenv("API_PASSWORD"),
-		EnableAccessLogs: false, // default to false, can be enabled with env var
+		HostPort:                 os.Getenv("HTTP_BIND_ADDR"),
+		LogLevel:                 os.Getenv("LOG_LEVEL"),
+		SQLitePath:               os.Getenv("SQLITE_PATH"),
+		GUIUsername:              os.Getenv("GUI_USERNAME"),
+		GUIPassword:              os.Getenv("GUI_PASSWORD"),
+		GUISessionSecret:         os.Getenv("GUI_SESSION_SECRET"),
+		APIUsername:              os.Getenv("API_USERNAME"),
+		APIPassword:              os.Getenv("API_PASSWORD"),
+		EnableBankingAppID:       strings.TrimSpace(os.Getenv("ENABLE_BANKING_APPLICATION_ID")),
+		EnableBankingPrivateKey:  strings.TrimSpace(os.Getenv("ENABLE_BANKING_PRIVATE_KEY_PATH")),
+		EnableBankingCallbackURL: strings.TrimSpace(os.Getenv("ENABLE_BANKING_CALLBACK_URL")),
+		EnableBankingASPSPName:   "ING",
+		EnableAccessLogs:         false, // default to false, can be enabled with env var
 
 		// storage settings
 		StorageUploadDir:       os.Getenv("STORAGE_UPLOAD_DIR"),
@@ -89,6 +97,12 @@ func Load() (Config, error) {
 		// incident-manager notification settings
 		IncidentManagerICALURL:  strings.TrimSpace(os.Getenv("INCIDENT_MANAGER_ICAL_URL")),
 		IncidentManagerNotifyAt: "17:00",
+	}
+	if raw := strings.TrimSpace(os.Getenv("ENABLE_BANKING_ASPSP_NAME")); raw != "" {
+		cfg.EnableBankingASPSPName = raw
+	}
+	if err := validateEnableBankingConfig(cfg); err != nil {
+		return Config{}, err
 	}
 
 	if raw := strings.TrimSpace(os.Getenv("INCIDENT_MANAGER_NOTIFICATION_TIME")); raw != "" {
@@ -158,4 +172,33 @@ func Load() (Config, error) {
 		cfg.EnableAccessLogs = v
 	}
 	return cfg, nil
+}
+
+// EnableBankingEnabled reports whether all required provider settings are present.
+func (c Config) EnableBankingEnabled() bool {
+	return c.EnableBankingAppID != "" && c.EnableBankingPrivateKey != "" && c.EnableBankingCallbackURL != ""
+}
+
+func validateEnableBankingConfig(cfg Config) error {
+	values := []string{cfg.EnableBankingAppID, cfg.EnableBankingPrivateKey, cfg.EnableBankingCallbackURL}
+	configured := 0
+	for _, value := range values {
+		if value != "" {
+			configured++
+		}
+	}
+	if configured == 0 {
+		return nil
+	}
+	if configured != len(values) {
+		return fmt.Errorf("ENABLE_BANKING_APPLICATION_ID, ENABLE_BANKING_PRIVATE_KEY_PATH, and ENABLE_BANKING_CALLBACK_URL must be configured together")
+	}
+	callbackURL, err := url.Parse(cfg.EnableBankingCallbackURL)
+	if err != nil || callbackURL.Scheme != "https" || callbackURL.Host == "" || callbackURL.User != nil {
+		return fmt.Errorf("invalid ENABLE_BANKING_CALLBACK_URL: expected an absolute HTTPS URL without user information")
+	}
+	if strings.TrimSpace(cfg.GUIUsername) == "" || strings.TrimSpace(cfg.GUIPassword) == "" || len(cfg.GUISessionSecret) < 32 {
+		return fmt.Errorf("Enable Banking requires GUI_USERNAME, GUI_PASSWORD, and GUI_SESSION_SECRET of at least 32 characters")
+	}
+	return nil
 }

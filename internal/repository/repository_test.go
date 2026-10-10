@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -146,5 +148,30 @@ func TestMemoryStoreDeleteReadingListItemsOlderThan(t *testing.T) {
 
 	if len(items) != 0 {
 		t.Fatalf("items count = %d, want 0", len(items))
+	}
+}
+
+func TestSQLiteBankConnectionRoundTrip(t *testing.T) {
+	store, err := NewSQLiteStore(filepath.Join(t.TempDir(), "bank.db"))
+	if err != nil {
+		t.Fatalf("NewSQLiteStore() error = %v", err)
+	}
+	defer store.Close()
+
+	ctx := context.Background()
+	if _, err := store.GetBankConnection(ctx); !errors.Is(err, ErrBankConnectionNotFound) {
+		t.Fatalf("GetBankConnection() error = %v, want %v", err, ErrBankConnectionNotFound)
+	}
+	want := BankConnection{
+		SessionID: "session", AccountID: "account", AccountName: "Current account", Currency: "EUR",
+		ValidUntil: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
+		UpdatedAt:  time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC),
+	}
+	if err := store.SaveBankConnection(ctx, want); err != nil {
+		t.Fatalf("SaveBankConnection() error = %v", err)
+	}
+	got, err := store.GetBankConnection(ctx)
+	if err != nil || got != want {
+		t.Fatalf("GetBankConnection() = (%+v, %v), want %+v", got, err, want)
 	}
 }

@@ -282,6 +282,29 @@ func TestAppHomeIncludesStorageSecretKeyForGUIFileLinks(t *testing.T) {
 	}
 }
 
+func TestAppHomeIncludesBankBalanceCard(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	Register(router, nil, "2026-10-10T00:00:00Z", "")
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	for _, want := range []string{
+		`id="bank-balance-card"`,
+		`href="/api/banking/connect"`,
+		`async function loadBankBalance`,
+		`/api/banking/balance`,
+	} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Fatalf("home page missing banking marker %q", want)
+		}
+	}
+}
+
 func TestAppHomeIncludesReadOnlyIncidentManagerOverview(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
