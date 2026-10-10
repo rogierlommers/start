@@ -110,4 +110,16 @@ var sqliteMigrations = []sqliteMigration{
 			`ALTER TABLE bank_connections ADD COLUMN transactions_enabled INTEGER NOT NULL DEFAULT 0`,
 		},
 	},
+	{
+		version: 7,
+		name:    "add_bank_account_aliases",
+		statements: []string{
+			`ALTER TABLE bank_connections ADD COLUMN identification_hash TEXT NOT NULL DEFAULT ''`,
+			`CREATE TABLE bank_account_aliases (
+				identification TEXT PRIMARY KEY,
+				alias TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+		},
+	},
 }

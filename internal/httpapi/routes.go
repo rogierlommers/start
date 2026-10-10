@@ -61,6 +61,7 @@ func Register(router gin.IRouter, svc *service.Service, cfg config.Config) {
 	api.GET("/incident-manager", h.getIncidentManagerOverview)
 	api.GET("/banking/balance", h.getBankBalance)
 	api.GET("/banking/transactions", h.getBankTransactions)
+	api.PATCH("/banking/accounts/:accountKey/alias", h.updateBankAccountAlias)
 	api.GET("/banking/connect", h.connectBank)
 	api.GET("/banking/callback", h.bankCallback)
 }

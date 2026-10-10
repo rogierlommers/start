@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -73,11 +74,11 @@ func TestBankingRecoversAllAccountsFromExistingSession(t *testing.T) {
 	client := &fakeBankingClient{
 		session: banking.Session{
 			ID: "session-1", ValidUntil: now.AddDate(0, 0, 180),
-			Accounts: []banking.Account{{ID: "account-1"}, {ID: "account-2"}},
+			Accounts: []banking.Account{{ID: "account-1", IdentificationHash: "stable-1"}, {ID: "account-2", IdentificationHash: "stable-2"}},
 		},
 		accountDetails: map[string]banking.Account{
-			"account-1": {ID: "account-1", Name: "Current account", Currency: "EUR"},
-			"account-2": {ID: "account-2", Name: "Savings account", Currency: "EUR"},
+			"account-1": {ID: "account-1", IdentificationHash: "stable-1", Name: "Current account", Currency: "EUR"},
+			"account-2": {ID: "account-2", IdentificationHash: "stable-2", Name: "Savings account", Currency: "EUR"},
 		},
 		balances: map[string][]banking.Balance{
 			"account-1": {{Type: "CLAV", Amount: "100.00", Currency: "EUR"}},
@@ -109,8 +110,8 @@ func TestBankingConnectionAndCachedBalance(t *testing.T) {
 		session: banking.Session{
 			ID: "session-1", ValidUntil: now.AddDate(0, 0, 180),
 			Accounts: []banking.Account{
-				{ID: "account-1", Name: "Oranje account", Currency: "EUR"},
-				{ID: "account-2", Product: "Savings account", Currency: "EUR"},
+				{ID: "account-1", IdentificationHash: "stable-1", Name: "Oranje account", Currency: "EUR"},
+				{ID: "account-2", IdentificationHash: "stable-2", Product: "Savings account", Currency: "EUR"},
 			},
 		},
 		balances: map[string][]banking.Balance{
@@ -153,6 +154,19 @@ func TestBankingConnectionAndCachedBalance(t *testing.T) {
 	if err != nil || len(overview.Accounts) != 2 || overview.Accounts[0].Amount != "100.00" || overview.Accounts[1].Amount != "250.00" {
 		t.Fatalf("GetBankBalances() = (%+v, %v)", overview, err)
 	}
+	if _, err := svc.SetBankAccountAlias(context.Background(), overview.Accounts[0].AccountKey, "Household", now); err != nil {
+		t.Fatalf("SetBankAccountAlias() error = %v", err)
+	}
+	overview, err = svc.GetBankBalances(context.Background(), now.Add(time.Second), false)
+	if err != nil || overview.Accounts[0].AccountName != "Household" || overview.Accounts[0].ProviderAccountName != "Oranje account" || overview.Accounts[0].Alias != "Household" {
+		t.Fatalf("aliased GetBankBalances() = (%+v, %v)", overview, err)
+	}
+	if _, err := svc.SetBankAccountAlias(context.Background(), overview.Accounts[0].AccountKey, strings.Repeat("x", 81), now); !errors.Is(err, ErrInvalidBankAlias) {
+		t.Fatalf("long alias error = %v, want %v", err, ErrInvalidBankAlias)
+	}
+	if _, err := svc.SetBankAccountAlias(context.Background(), strings.Repeat("0", 64), "Unknown", now); !errors.Is(err, ErrBankAccountNotFound) {
+		t.Fatalf("unknown account error = %v, want %v", err, ErrBankAccountNotFound)
+	}
 	_, err = svc.GetBankBalances(context.Background(), now.Add(time.Minute), false)
 	if err != nil || client.balanceCalls != 2 {
 		t.Fatalf("cached GetBankBalances() error = %v, calls = %d", err, client.balanceCalls)
@@ -164,7 +178,7 @@ func TestBankingConnectionAndCachedBalance(t *testing.T) {
 		t.Fatalf("stale GetBankBalances() = (%+v, %v)", stale, err)
 	}
 	transactionOverview, err := svc.GetBankTransactions(context.Background(), now, 1, false)
-	if err != nil || len(transactionOverview.Accounts) != 2 || len(transactionOverview.Accounts[0].Transactions) != 1 {
+	if err != nil || len(transactionOverview.Accounts) != 2 || len(transactionOverview.Accounts[0].Transactions) != 1 || transactionOverview.Accounts[0].AccountName != "Household" {
 		t.Fatalf("GetBankTransactions() = (%+v, %v)", transactionOverview, err)
 	}
 	transaction := transactionOverview.Accounts[0].Transactions[0]

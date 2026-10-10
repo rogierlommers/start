@@ -330,11 +330,13 @@ func TestAppHomeIncludesBankBalanceCard(t *testing.T) {
 		`id="bank-balances-list"`,
 		`href="/api/banking/connect"`,
 		`function renderBankAccount`,
+		`async function renameBankAccount`,
 		`function renderBankTransaction`,
 		`async function loadBankBalance`,
 		`async function loadBankTransactions`,
 		`/api/banking/balance`,
 		`/api/banking/transactions?limit=5`,
+		`/api/banking/accounts/${encodeURIComponent(account.account_key)}/alias`,
 	} {
 		if !strings.Contains(rec.Body.String(), want) {
 			t.Fatalf("home page missing banking marker %q", want)

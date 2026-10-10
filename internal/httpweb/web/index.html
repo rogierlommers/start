@@ -328,10 +328,31 @@
         const card = document.createElement('article')
         card.className = 'rounded-xl border border-orange-100 bg-white/80 p-4'
 
+        const header = document.createElement('div')
+        header.className = 'flex items-start justify-between gap-2'
+        const names = document.createElement('div')
+        names.className = 'min-w-0'
         const name = document.createElement('h3')
         name.className = 'truncate text-sm font-medium text-gray-700'
         name.textContent = account.account_name || 'ING account'
-        card.appendChild(name)
+        names.appendChild(name)
+        if (account.alias && account.provider_account_name && account.provider_account_name !== account.alias) {
+          const providerName = document.createElement('div')
+          providerName.className = 'truncate text-xs text-gray-400'
+          providerName.textContent = account.provider_account_name
+          names.appendChild(providerName)
+        }
+        header.appendChild(names)
+        if (account.account_key) {
+          const rename = document.createElement('button')
+          rename.type = 'button'
+          rename.className = 'shrink-0 rounded-md px-2 py-1 text-xs text-orange-700 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-orange-400'
+          rename.textContent = account.alias ? 'Rename' : 'Add name'
+          rename.setAttribute('aria-label', `Set a custom name for ${account.provider_account_name || account.account_name || 'ING account'}`)
+          rename.addEventListener('click', () => renameBankAccount(account))
+          header.appendChild(rename)
+        }
+        card.appendChild(header)
 
         const amount = document.createElement('div')
         amount.className = 'mt-2 text-2xl font-semibold tracking-tight text-gray-900'
@@ -370,6 +391,28 @@
         transactions.appendChild(loading)
         card.appendChild(transactions)
         return card
+      }
+
+      async function renameBankAccount(account) {
+        const providerName = account.provider_account_name || account.account_name || 'ING account'
+        const value = window.prompt(`Custom name for ${providerName}\nLeave empty to restore the ING name.`, account.alias || '')
+        if (value === null) return
+        const alias = value.trim()
+        if ([...alias].length > 80) {
+          toast('Account name must be 80 characters or fewer', 'error')
+          return
+        }
+        try {
+          await apiFetch(`/api/banking/accounts/${encodeURIComponent(account.account_key)}/alias`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ alias }),
+          })
+          toast(alias ? 'Account name saved' : 'Account name reset')
+          await loadBankBalance(false)
+        } catch (err) {
+          toast(err.message || 'Failed to save account name', 'error')
+        }
       }
 
       function formatBankTransactionAmount(transaction) {

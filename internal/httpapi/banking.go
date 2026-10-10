@@ -12,16 +12,19 @@ import (
 )
 
 type bankBalanceResponse struct {
-	Status       string     `json:"status"`
-	AccountName  string     `json:"account_name,omitempty"`
-	Amount       string     `json:"amount,omitempty"`
-	Currency     string     `json:"currency,omitempty"`
-	BalanceType  string     `json:"balance_type,omitempty"`
-	BalanceName  string     `json:"balance_name,omitempty"`
-	ProviderTime *time.Time `json:"provider_time,omitempty"`
-	FetchedAt    *time.Time `json:"fetched_at,omitempty"`
-	ValidUntil   *time.Time `json:"valid_until,omitempty"`
-	Stale        bool       `json:"stale"`
+	Status              string     `json:"status"`
+	AccountKey          string     `json:"account_key,omitempty"`
+	AccountName         string     `json:"account_name,omitempty"`
+	ProviderAccountName string     `json:"provider_account_name,omitempty"`
+	Alias               string     `json:"alias,omitempty"`
+	Amount              string     `json:"amount,omitempty"`
+	Currency            string     `json:"currency,omitempty"`
+	BalanceType         string     `json:"balance_type,omitempty"`
+	BalanceName         string     `json:"balance_name,omitempty"`
+	ProviderTime        *time.Time `json:"provider_time,omitempty"`
+	FetchedAt           *time.Time `json:"fetched_at,omitempty"`
+	ValidUntil          *time.Time `json:"valid_until,omitempty"`
+	Stale               bool       `json:"stale"`
 }
 
 type bankBalancesResponse struct {
@@ -50,17 +53,28 @@ type bankTransactionResponse struct {
 }
 
 type bankAccountTransactionsResponse struct {
-	Status       string                    `json:"status"`
-	AccountName  string                    `json:"account_name"`
-	Transactions []bankTransactionResponse `json:"transactions"`
-	FetchedAt    *time.Time                `json:"fetched_at,omitempty"`
-	ValidUntil   *time.Time                `json:"valid_until,omitempty"`
-	Stale        bool                      `json:"stale"`
+	Status              string                    `json:"status"`
+	AccountKey          string                    `json:"account_key"`
+	AccountName         string                    `json:"account_name"`
+	ProviderAccountName string                    `json:"provider_account_name,omitempty"`
+	Alias               string                    `json:"alias,omitempty"`
+	Transactions        []bankTransactionResponse `json:"transactions"`
+	FetchedAt           *time.Time                `json:"fetched_at,omitempty"`
+	ValidUntil          *time.Time                `json:"valid_until,omitempty"`
+	Stale               bool                      `json:"stale"`
 }
 
 type bankTransactionsResponse struct {
 	Status   string                            `json:"status"`
 	Accounts []bankAccountTransactionsResponse `json:"accounts"`
+}
+
+type bankAccountAliasRequest struct {
+	Alias string `json:"alias"`
+}
+
+type bankAccountAliasResponse struct {
+	Alias string `json:"alias"`
 }
 
 // getBankBalance godoc
@@ -101,7 +115,9 @@ func (h handlers) getBankBalance(c *gin.Context) {
 
 func bankBalanceAPIResponse(overview service.BankBalanceOverview) bankBalanceResponse {
 	response := bankBalanceResponse{
-		Status: overview.Status, AccountName: overview.AccountName, Amount: overview.Amount,
+		Status: overview.Status, AccountKey: overview.AccountKey,
+		AccountName: overview.AccountName, ProviderAccountName: overview.ProviderAccountName, Alias: overview.Alias,
+		Amount:   overview.Amount,
 		Currency: overview.Currency, BalanceType: overview.BalanceType,
 		BalanceName: overview.BalanceName, Stale: overview.Stale,
 	}
@@ -151,7 +167,9 @@ func (h handlers) getBankTransactions(c *gin.Context) {
 	}
 	for _, account := range overview.Accounts {
 		mapped := bankAccountTransactionsResponse{
-			Status: account.Status, AccountName: account.AccountName, Stale: account.Stale,
+			Status: account.Status, AccountKey: account.AccountKey,
+			AccountName: account.AccountName, ProviderAccountName: account.ProviderAccountName, Alias: account.Alias,
+			Stale:        account.Stale,
 			Transactions: make([]bankTransactionResponse, 0, len(account.Transactions)),
 		}
 		for _, transaction := range account.Transactions {
@@ -171,6 +189,41 @@ func (h handlers) getBankTransactions(c *gin.Context) {
 		response.Accounts = append(response.Accounts, mapped)
 	}
 	c.JSON(http.StatusOK, response)
+}
+
+// updateBankAccountAlias godoc
+// @Summary Set or clear a local bank account alias
+// @Tags banking
+// @Accept json
+// @Produce json
+// @Security ApiBasicAuth
+// @Param accountKey path string true "Opaque account key"
+// @Param request body bankAccountAliasRequest true "Alias; an empty value clears it"
+// @Success 200 {object} bankAccountAliasResponse
+// @Failure 400 {object} apiErrorResponse
+// @Failure 404 {object} apiErrorResponse
+// @Router /api/banking/accounts/{accountKey}/alias [patch]
+func (h handlers) updateBankAccountAlias(c *gin.Context) {
+	var request bankAccountAliasRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "invalid alias request"})
+		return
+	}
+	alias, err := h.svc.SetBankAccountAlias(c.Request.Context(), c.Param("accountKey"), request.Alias, time.Now())
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrBankingDisabled):
+			c.JSON(http.StatusServiceUnavailable, apiErrorResponse{Error: "banking integration is not configured"})
+		case errors.Is(err, service.ErrInvalidBankAlias):
+			c.JSON(http.StatusBadRequest, apiErrorResponse{Error: "alias must be at most 80 characters and contain no control characters"})
+		case errors.Is(err, service.ErrBankAccountNotFound):
+			c.JSON(http.StatusNotFound, apiErrorResponse{Error: "bank account not found"})
+		default:
+			c.JSON(http.StatusInternalServerError, apiErrorResponse{Error: "failed to save bank account alias"})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, bankAccountAliasResponse{Alias: alias})
 }
 
 func (h handlers) connectBank(c *gin.Context) {

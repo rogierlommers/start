@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"regexp"
@@ -11,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"start/internal/banking"
 	"start/internal/repository"
@@ -28,21 +31,26 @@ var (
 	ErrBankingDisabled     = errors.New("banking integration is not configured")
 	ErrBankingStateInvalid = errors.New("banking authorization state is invalid or expired")
 	ErrBankingUnavailable  = errors.New("banking provider is unavailable")
+	ErrBankAccountNotFound = errors.New("bank account not found")
+	ErrInvalidBankAlias    = errors.New("bank account alias is invalid")
 	bankAmountPattern      = regexp.MustCompile(`^-?[0-9]{1,18}(\.[0-9]{1,8})?$`)
 	bankCurrencyPattern    = regexp.MustCompile(`^[A-Z]{3}$`)
 )
 
 type BankBalanceOverview struct {
-	Status       string
-	AccountName  string
-	Amount       string
-	Currency     string
-	BalanceType  string
-	BalanceName  string
-	ProviderTime time.Time
-	FetchedAt    time.Time
-	ValidUntil   time.Time
-	Stale        bool
+	Status              string
+	AccountKey          string
+	AccountName         string
+	ProviderAccountName string
+	Alias               string
+	Amount              string
+	Currency            string
+	BalanceType         string
+	BalanceName         string
+	ProviderTime        time.Time
+	FetchedAt           time.Time
+	ValidUntil          time.Time
+	Stale               bool
 }
 
 type BankBalancesOverview struct {
@@ -60,12 +68,15 @@ type BankTransaction struct {
 }
 
 type BankAccountTransactions struct {
-	Status       string
-	AccountName  string
-	Transactions []BankTransaction
-	FetchedAt    time.Time
-	ValidUntil   time.Time
-	Stale        bool
+	Status              string
+	AccountKey          string
+	AccountName         string
+	ProviderAccountName string
+	Alias               string
+	Transactions        []BankTransaction
+	FetchedAt           time.Time
+	ValidUntil          time.Time
+	Stale               bool
 }
 
 type BankTransactionsOverview struct {
@@ -134,6 +145,7 @@ func (s *Service) CompleteBankAuthorization(ctx context.Context, state, code str
 			SessionID: session.ID, AccountID: account.ID, AccountName: bankAccountName(account),
 			Currency: account.Currency, ValidUntil: session.ValidUntil, UpdatedAt: now.UTC(),
 			TransactionsEnabled: true,
+			IdentificationHash:  bankIdentificationHash(account.IdentificationHash),
 		})
 	}
 	s.bankingSyncMu.Lock()
@@ -172,6 +184,10 @@ func (s *Service) GetBankBalances(ctx context.Context, now time.Time, forceRefre
 		return BankBalancesOverview{Status: "disconnected", Accounts: []BankBalanceOverview{}}, nil
 	}
 	connections = s.syncBankConnections(ctx, connections, now)
+	aliases, err := s.store.ListBankAccountAliases(ctx)
+	if err != nil {
+		return BankBalancesOverview{}, fmt.Errorf("load bank account aliases: %w", err)
+	}
 
 	s.bankingMu.Lock()
 	cached := make(map[string]BankBalanceOverview, len(s.bankingCache))
@@ -241,6 +257,7 @@ func (s *Service) GetBankBalances(ctx context.Context, now time.Time, forceRefre
 	if allExpired {
 		status = "reauthorization_required"
 	}
+	decorateBankBalances(results, connections, aliases)
 	return BankBalancesOverview{Status: status, Accounts: results}, nil
 }
 
@@ -274,10 +291,14 @@ func (s *Service) syncBankConnections(ctx context.Context, existing []repository
 			}
 			account = sessionAccount
 		}
+		if bankIdentificationHash(account.IdentificationHash) == "" {
+			account.IdentificationHash = sessionAccount.IdentificationHash
+		}
 		connections = append(connections, repository.BankConnection{
 			SessionID: session.ID, AccountID: account.ID, AccountName: bankAccountName(account),
 			Currency: account.Currency, ValidUntil: session.ValidUntil, UpdatedAt: now.UTC(),
 			TransactionsEnabled: session.TransactionsEnabled,
+			IdentificationHash:  bankIdentificationHash(account.IdentificationHash),
 		})
 	}
 	if len(connections) == 0 {
@@ -310,6 +331,10 @@ func (s *Service) GetBankTransactions(ctx context.Context, now time.Time, limit 
 		return BankTransactionsOverview{Status: "disconnected", Accounts: []BankAccountTransactions{}}, nil
 	}
 	connections = s.syncBankConnections(ctx, connections, now)
+	aliases, err := s.store.ListBankAccountAliases(ctx)
+	if err != nil {
+		return BankTransactionsOverview{}, fmt.Errorf("load bank account aliases: %w", err)
+	}
 
 	s.bankingMu.Lock()
 	cached := make(map[string]BankAccountTransactions, len(s.bankingTransactionCache))
@@ -388,7 +413,89 @@ func (s *Service) GetBankTransactions(ctx context.Context, now time.Time, limit 
 	} else if allExpired {
 		status = "reauthorization_required"
 	}
+	decorateBankTransactions(results, connections, aliases)
 	return BankTransactionsOverview{Status: status, Accounts: results}, nil
+}
+
+func (s *Service) SetBankAccountAlias(ctx context.Context, accountKey, alias string, now time.Time) (string, error) {
+	if !s.cfg.EnableBankingEnabled() || s.bankingClient == nil {
+		return "", ErrBankingDisabled
+	}
+	if len(accountKey) != sha256.Size*2 {
+		return "", ErrBankAccountNotFound
+	}
+	trimmed := strings.TrimSpace(alias)
+	if len([]rune(trimmed)) > 80 {
+		return "", ErrInvalidBankAlias
+	}
+	for _, r := range trimmed {
+		if unicode.IsControl(r) {
+			return "", ErrInvalidBankAlias
+		}
+	}
+	connections, err := s.store.ListBankConnections(ctx)
+	if err != nil {
+		return "", fmt.Errorf("load bank connections: %w", err)
+	}
+	for _, connection := range connections {
+		if bankAccountKey(connection) != accountKey {
+			continue
+		}
+		if err := s.store.SaveBankAccountAlias(ctx, bankAccountIdentity(connection), trimmed, now); err != nil {
+			return "", fmt.Errorf("save bank account alias: %w", err)
+		}
+		return trimmed, nil
+	}
+	return "", ErrBankAccountNotFound
+}
+
+func decorateBankBalances(results []BankBalanceOverview, connections []repository.BankConnection, aliases map[string]string) {
+	for index, connection := range connections {
+		alias := aliases[bankAccountIdentity(connection)]
+		results[index].AccountKey = bankAccountKey(connection)
+		results[index].ProviderAccountName = connection.AccountName
+		results[index].Alias = alias
+		if alias != "" {
+			results[index].AccountName = alias
+		}
+	}
+}
+
+func decorateBankTransactions(results []BankAccountTransactions, connections []repository.BankConnection, aliases map[string]string) {
+	for index, connection := range connections {
+		alias := aliases[bankAccountIdentity(connection)]
+		results[index].AccountKey = bankAccountKey(connection)
+		results[index].ProviderAccountName = connection.AccountName
+		results[index].Alias = alias
+		if alias != "" {
+			results[index].AccountName = alias
+		}
+	}
+}
+
+func bankAccountIdentity(connection repository.BankConnection) string {
+	identificationHash := bankIdentificationHash(connection.IdentificationHash)
+	if identificationHash != "" {
+		return "hash:" + identificationHash
+	}
+	return ""
+}
+
+func bankIdentificationHash(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || len(value) > 1024 {
+		return ""
+	}
+	return value
+}
+
+func bankAccountKey(connection repository.BankConnection) string {
+	identity := bankAccountIdentity(connection)
+	if identity == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(identity))
+	return hex.EncodeToString(sum[:])
 }
 
 func (s *Service) fetchBankTransactions(ctx context.Context, now time.Time, connection repository.BankConnection, cached *BankAccountTransactions) BankAccountTransactions {

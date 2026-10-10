@@ -34,6 +34,7 @@
         <li>Each account's label, currency, and consent expiry.</li>
         <li>Each current balance and the time it was retrieved.</li>
         <li>Recent booked transaction amounts, dates, counterparties, and payment descriptions when supplied by ING.</li>
+        <li>Any custom account names the operator chooses to save locally.</li>
       </ul>
       <p>START does not receive or store ING login credentials. Balances and transactions are not written to the application database. Successful responses may remain in server memory for up to five minutes to reduce requests and provide clearly marked saved values during a short provider outage. Transaction retrieval is limited to booked entries from the last 90 days.</p>
 
@@ -41,7 +42,7 @@
       <p>The data is used only to show the operator their requested account balances and recent transactions. The operator explicitly authorizes access in ING's own authentication flow. Consent can be withdrawn through ING or Enable Banking.</p>
 
       <h2>Storage and retention</h2>
-      <p>The connection references remain in the private application database until they are replaced or removed by the operator. Temporary authorization state expires after 15 minutes and can be used only once. Provider consent expires after the period approved during connection.</p>
+      <p>The connection references remain in the private application database until they are replaced or removed by the operator. Custom account names are linked to a stable, provider-issued account identification hash and remain until reset by the operator or removed from the private database. Temporary authorization state expires after 15 minutes and can be used only once. Provider consent expires after the period approved during connection.</p>
 
       <h2>Third parties</h2>
       <p>Enable Banking provides the regulated account-information connection, and ING provides the underlying account data. Their own privacy notices and terms also apply. START does not sell account data or share it for advertising.</p>

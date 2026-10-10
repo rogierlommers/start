@@ -52,10 +52,11 @@ type Session struct {
 }
 
 type Account struct {
-	ID       string
-	Name     string
-	Product  string
-	Currency string
+	ID                 string
+	IdentificationHash string
+	Name               string
+	Product            string
+	Currency           string
 }
 
 type Balance struct {
@@ -159,10 +160,11 @@ func (c *EnableBankingClient) AuthorizeSession(ctx context.Context, code string)
 	var response struct {
 		SessionID string `json:"session_id"`
 		Accounts  []struct {
-			UID      string `json:"uid"`
-			Name     string `json:"name"`
-			Product  string `json:"product"`
-			Currency string `json:"currency"`
+			UID                string `json:"uid"`
+			IdentificationHash string `json:"identification_hash"`
+			Name               string `json:"name"`
+			Product            string `json:"product"`
+			Currency           string `json:"currency"`
 		} `json:"accounts"`
 		Access struct {
 			ValidUntil   string `json:"valid_until"`
@@ -187,7 +189,8 @@ func (c *EnableBankingClient) AuthorizeSession(ctx context.Context, code string)
 		}
 		seenAccountIDs[account.UID] = struct{}{}
 		session.Accounts = append(session.Accounts, Account{
-			ID: account.UID, Name: account.Name, Product: account.Product, Currency: account.Currency,
+			ID: account.UID, IdentificationHash: account.IdentificationHash,
+			Name: account.Name, Product: account.Product, Currency: account.Currency,
 		})
 	}
 	if session.ID == "" || len(session.Accounts) == 0 {
@@ -200,7 +203,8 @@ func (c *EnableBankingClient) GetSession(ctx context.Context, sessionID string) 
 	var response struct {
 		Accounts     []string `json:"accounts"`
 		AccountsData []struct {
-			UID string `json:"uid"`
+			UID                string `json:"uid"`
+			IdentificationHash string `json:"identification_hash"`
 		} `json:"accounts_data"`
 		Access struct {
 			ValidUntil   string `json:"valid_until"`
@@ -215,24 +219,27 @@ func (c *EnableBankingClient) GetSession(ctx context.Context, sessionID string) 
 	if err != nil {
 		return Session{}, errors.New("Enable Banking returned an invalid consent expiry")
 	}
-	accountIDs := response.Accounts
+	accounts := make([]Account, 0, len(response.Accounts))
+	for _, accountID := range response.Accounts {
+		accounts = append(accounts, Account{ID: accountID})
+	}
 	if len(response.AccountsData) > 0 {
-		accountIDs = make([]string, 0, len(response.AccountsData))
+		accounts = make([]Account, 0, len(response.AccountsData))
 		for _, account := range response.AccountsData {
-			accountIDs = append(accountIDs, account.UID)
+			accounts = append(accounts, Account{ID: account.UID, IdentificationHash: account.IdentificationHash})
 		}
 	}
-	seen := make(map[string]struct{}, len(accountIDs))
+	seen := make(map[string]struct{}, len(accounts))
 	session := Session{ID: sessionID, ValidUntil: validUntil, TransactionsEnabled: response.Access.Transactions}
-	for _, accountID := range accountIDs {
-		if accountID == "" {
+	for _, account := range accounts {
+		if account.ID == "" {
 			return Session{}, errors.New("Enable Banking returned an account without an ID")
 		}
-		if _, exists := seen[accountID]; exists {
+		if _, exists := seen[account.ID]; exists {
 			return Session{}, errors.New("Enable Banking returned a duplicate account ID")
 		}
-		seen[accountID] = struct{}{}
-		session.Accounts = append(session.Accounts, Account{ID: accountID})
+		seen[account.ID] = struct{}{}
+		session.Accounts = append(session.Accounts, account)
 	}
 	if len(session.Accounts) == 0 {
 		return Session{}, errors.New("Enable Banking returned no accessible account")
@@ -242,16 +249,20 @@ func (c *EnableBankingClient) GetSession(ctx context.Context, sessionID string) 
 
 func (c *EnableBankingClient) GetAccountDetails(ctx context.Context, accountID string) (Account, error) {
 	var response struct {
-		UID      string `json:"uid"`
-		Name     string `json:"name"`
-		Product  string `json:"product"`
-		Currency string `json:"currency"`
+		UID                string `json:"uid"`
+		IdentificationHash string `json:"identification_hash"`
+		Name               string `json:"name"`
+		Product            string `json:"product"`
+		Currency           string `json:"currency"`
 	}
 	path := "/accounts/" + url.PathEscape(accountID) + "/details"
 	if err := c.doJSON(ctx, http.MethodGet, path, nil, &response); err != nil {
 		return Account{}, err
 	}
-	return Account{ID: accountID, Name: response.Name, Product: response.Product, Currency: response.Currency}, nil
+	return Account{
+		ID: accountID, IdentificationHash: response.IdentificationHash,
+		Name: response.Name, Product: response.Product, Currency: response.Currency,
+	}, nil
 }
 
 func (c *EnableBankingClient) GetBalances(ctx context.Context, accountID string) ([]Balance, error) {

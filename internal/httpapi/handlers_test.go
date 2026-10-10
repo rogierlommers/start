@@ -100,6 +100,20 @@ func TestBankTransactionsHandlerValidationAndDisabledState(t *testing.T) {
 	}
 }
 
+func TestBankAccountAliasHandlerValidationAndDisabledState(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router, _ := newAPITestRouter(t)
+
+	rec := performJSONRequest(router, http.MethodPatch, "/api/banking/accounts/key/alias", `{`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid alias request status = %d body %q", rec.Code, rec.Body.String())
+	}
+	rec = performJSONRequest(router, http.MethodPatch, "/api/banking/accounts/key/alias", `{"alias":"Household"}`)
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "not configured") {
+		t.Fatalf("disabled alias response = status %d body %q", rec.Code, rec.Body.String())
+	}
+}
+
 func TestDeriveSubjectTrimsAndTruncates(t *testing.T) {
 	if got := deriveSubject("  \n first line \nsecond"); got != "first line" {
 		t.Fatalf("deriveSubject() = %q, want %q", got, "first line")

@@ -493,7 +493,7 @@ func (s *SQLiteStore) DeleteReadingListItemsOlderThan(ctx context.Context, befor
 
 func (s *SQLiteStore) ListBankConnections(ctx context.Context) ([]BankConnection, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT session_id, account_id, account_name, currency, valid_until, updated_at, transactions_enabled
+		SELECT session_id, account_id, account_name, currency, valid_until, updated_at, transactions_enabled, identification_hash
 		FROM bank_connections ORDER BY position, account_id
 	`)
 	if err != nil {
@@ -513,6 +513,7 @@ func (s *SQLiteStore) ListBankConnections(ctx context.Context) ([]BankConnection
 			&validUntil,
 			&updatedAt,
 			&connection.TransactionsEnabled,
+			&connection.IdentificationHash,
 		); err != nil {
 			return nil, fmt.Errorf("scan bank connection: %w", err)
 		}
@@ -543,8 +544,8 @@ func (s *SQLiteStore) ReplaceBankConnections(ctx context.Context, connections []
 	}
 	for position, connection := range connections {
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO bank_connections(account_id, session_id, account_name, currency, valid_until, updated_at, position, transactions_enabled)
-			VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO bank_connections(account_id, session_id, account_name, currency, valid_until, updated_at, position, transactions_enabled, identification_hash)
+			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`,
 			connection.AccountID,
 			connection.SessionID,
@@ -554,6 +555,7 @@ func (s *SQLiteStore) ReplaceBankConnections(ctx context.Context, connections []
 			connection.UpdatedAt.UTC().Format(time.RFC3339Nano),
 			position+1,
 			boolToInt(connection.TransactionsEnabled),
+			connection.IdentificationHash,
 		); err != nil {
 			return fmt.Errorf("insert bank connection: %w", err)
 		}
@@ -587,6 +589,43 @@ func (s *SQLiteStore) ReplaceBankConnections(ctx context.Context, connections []
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit bank connections: %w", err)
+	}
+	return nil
+}
+
+func (s *SQLiteStore) ListBankAccountAliases(ctx context.Context) (map[string]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT identification, alias FROM bank_account_aliases`)
+	if err != nil {
+		return nil, fmt.Errorf("list bank account aliases: %w", err)
+	}
+	defer rows.Close()
+	aliases := make(map[string]string)
+	for rows.Next() {
+		var identification, alias string
+		if err := rows.Scan(&identification, &alias); err != nil {
+			return nil, fmt.Errorf("scan bank account alias: %w", err)
+		}
+		aliases[identification] = alias
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate bank account aliases: %w", err)
+	}
+	return aliases, nil
+}
+
+func (s *SQLiteStore) SaveBankAccountAlias(ctx context.Context, identification, alias string, updatedAt time.Time) error {
+	if alias == "" {
+		if _, err := s.db.ExecContext(ctx, `DELETE FROM bank_account_aliases WHERE identification = ?`, identification); err != nil {
+			return fmt.Errorf("delete bank account alias: %w", err)
+		}
+		return nil
+	}
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO bank_account_aliases(identification, alias, updated_at) VALUES(?, ?, ?)
+		ON CONFLICT(identification) DO UPDATE SET alias = excluded.alias, updated_at = excluded.updated_at
+	`, identification, alias, updatedAt.UTC().Format(time.RFC3339Nano))
+	if err != nil {
+		return fmt.Errorf("save bank account alias: %w", err)
 	}
 	return nil
 }

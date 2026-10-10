@@ -85,11 +85,14 @@ type BankConnection struct {
 	ValidUntil          time.Time
 	UpdatedAt           time.Time
 	TransactionsEnabled bool
+	IdentificationHash  string
 }
 
 type BankConnectionStore interface {
 	ListBankConnections(ctx context.Context) ([]BankConnection, error)
 	ReplaceBankConnections(ctx context.Context, connections []BankConnection) error
+	ListBankAccountAliases(ctx context.Context) (map[string]string, error)
+	SaveBankAccountAlias(ctx context.Context, identification, alias string, updatedAt time.Time) error
 }
 
 // Store defines persistence dependencies used by the service layer.
@@ -161,5 +164,13 @@ func (n *NoopStore) ListBankConnections(_ context.Context) ([]BankConnection, er
 }
 
 func (n *NoopStore) ReplaceBankConnections(_ context.Context, _ []BankConnection) error {
+	return nil
+}
+
+func (n *NoopStore) ListBankAccountAliases(_ context.Context) (map[string]string, error) {
+	return map[string]string{}, nil
+}
+
+func (n *NoopStore) SaveBankAccountAlias(_ context.Context, _, _ string, _ time.Time) error {
 	return nil
 }

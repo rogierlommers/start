@@ -192,6 +192,11 @@ for five minutes and are never written to SQLite. Connections created before tra
 support remain balance-only until **Reconnect for transactions** is selected and the
 expanded ING consent is approved.
 
+Use **Add name** or **Rename** on an account card to set a local alias of up to 80
+characters. An empty value restores the ING-provided name. Aliases are stored separately
+from provider sessions using Enable Banking's stable account identification hash, so they
+survive consent renewal and account-session replacement. They only affect this dashboard.
+
 ## Reading List Bookmarklet
 
 Reading-list endpoints:

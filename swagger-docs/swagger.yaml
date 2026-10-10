@@ -39,11 +39,27 @@ definitions:
       error:
         type: string
     type: object
+  httpapi.bankAccountAliasRequest:
+    properties:
+      alias:
+        type: string
+    type: object
+  httpapi.bankAccountAliasResponse:
+    properties:
+      alias:
+        type: string
+    type: object
   httpapi.bankAccountTransactionsResponse:
     properties:
+      account_key:
+        type: string
       account_name:
         type: string
+      alias:
+        type: string
       fetched_at:
+        type: string
+      provider_account_name:
         type: string
       stale:
         type: boolean
@@ -58,7 +74,11 @@ definitions:
     type: object
   httpapi.bankBalanceResponse:
     properties:
+      account_key:
+        type: string
       account_name:
+        type: string
+      alias:
         type: string
       amount:
         type: string
@@ -69,6 +89,8 @@ definitions:
       currency:
         type: string
       fetched_at:
+        type: string
+      provider_account_name:
         type: string
       provider_time:
         type: string
@@ -326,6 +348,42 @@ info:
   title: start API
   version: 0.1.0
 paths:
+  /api/banking/accounts/{accountKey}/alias:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Opaque account key
+        in: path
+        name: accountKey
+        required: true
+        type: string
+      - description: Alias; an empty value clears it
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/httpapi.bankAccountAliasRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.bankAccountAliasResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpapi.apiErrorResponse'
+      security:
+      - ApiBasicAuth: []
+      summary: Set or clear a local bank account alias
+      tags:
+      - banking
   /api/banking/balance:
     get:
       produces:

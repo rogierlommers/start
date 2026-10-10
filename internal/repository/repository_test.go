@@ -174,6 +174,7 @@ func TestSQLiteBankConnectionRoundTrip(t *testing.T) {
 			ValidUntil:          time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC),
 			UpdatedAt:           time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC),
 			TransactionsEnabled: true,
+			IdentificationHash:  "stable-account-2",
 		},
 	}
 	if err := store.ReplaceBankConnections(ctx, want); err != nil {
@@ -196,6 +197,20 @@ func TestSQLiteBankConnectionRoundTrip(t *testing.T) {
 	}
 	if legacyAccountID != "account-2" {
 		t.Fatalf("legacy account ID = %q, want %q", legacyAccountID, "account-2")
+	}
+	if err := store.SaveBankAccountAlias(ctx, "hash:stable-account-2", "Holiday savings", time.Now()); err != nil {
+		t.Fatalf("SaveBankAccountAlias() error = %v", err)
+	}
+	aliases, err := store.ListBankAccountAliases(ctx)
+	if err != nil || aliases["hash:stable-account-2"] != "Holiday savings" {
+		t.Fatalf("ListBankAccountAliases() = (%+v, %v)", aliases, err)
+	}
+	if err := store.SaveBankAccountAlias(ctx, "hash:stable-account-2", "", time.Now()); err != nil {
+		t.Fatalf("clear bank alias error = %v", err)
+	}
+	aliases, err = store.ListBankAccountAliases(ctx)
+	if err != nil || len(aliases) != 0 {
+		t.Fatalf("aliases after clear = (%+v, %v)", aliases, err)
 	}
 }
 

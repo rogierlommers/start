@@ -17,6 +17,7 @@ type MemoryStore struct {
 	bookmarkCSV string
 	reading     map[int64]ReadingListItem
 	banks       []BankConnection
+	bankAliases map[string]string
 	nextCatID   int64
 	nextBmkID   int64
 	nextReadID  int64
@@ -35,14 +36,36 @@ func (m *MemoryStore) ReplaceBankConnections(_ context.Context, connections []Ba
 	return nil
 }
 
+func (m *MemoryStore) ListBankAccountAliases(_ context.Context) (map[string]string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	aliases := make(map[string]string, len(m.bankAliases))
+	for identification, alias := range m.bankAliases {
+		aliases[identification] = alias
+	}
+	return aliases, nil
+}
+
+func (m *MemoryStore) SaveBankAccountAlias(_ context.Context, identification, alias string, _ time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if alias == "" {
+		delete(m.bankAliases, identification)
+		return nil
+	}
+	m.bankAliases[identification] = alias
+	return nil
+}
+
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		categories: make(map[int64]Category),
-		bookmarks:  make(map[int64]Bookmark),
-		reading:    make(map[int64]ReadingListItem),
-		nextCatID:  1,
-		nextBmkID:  1,
-		nextReadID: 1,
+		categories:  make(map[int64]Category),
+		bookmarks:   make(map[int64]Bookmark),
+		reading:     make(map[int64]ReadingListItem),
+		bankAliases: make(map[string]string),
+		nextCatID:   1,
+		nextBmkID:   1,
+		nextReadID:  1,
 	}
 }
 
