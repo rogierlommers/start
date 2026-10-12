@@ -88,7 +88,7 @@ func TestSendIncidentManagerSummaryForFollowingDay(t *testing.T) {
 		t.Fatalf("sent %d messages, want 1", len(sender.messages))
 	}
 	msg := sender.messages[0]
-	if msg.To != "work@example.com" || msg.Subject != "📅 Today's IC: Alice Example" {
+	if msg.To != "work@example.com" || msg.Subject != "📅 Today's Alice Example" {
 		t.Fatalf("message headers = To %q, Subject %q", msg.To, msg.Subject)
 	}
 	if !strings.Contains(msg.Body, "Alice Example") || strings.Contains(msg.Body, "Wrong day") {
@@ -97,7 +97,7 @@ func TestSendIncidentManagerSummaryForFollowingDay(t *testing.T) {
 }
 
 func TestFormatIncidentManagerSubjectWithoutMatchingDuty(t *testing.T) {
-	if got := formatIncidentManagerSubject(nil); got != "📅 Today's IC: No incident manager found" {
+	if got := formatIncidentManagerSubject(nil); got != "📅 Today's No incident manager found" {
 		t.Fatalf("formatIncidentManagerSubject(nil) = %q", got)
 	}
 }

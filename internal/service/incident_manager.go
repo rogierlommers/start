@@ -149,7 +149,7 @@ func formatIncidentManagerSubject(events []incidentManagerEvent) string {
 			incidentManager = summary
 		}
 	}
-	return "📅 Today's IC: " + incidentManager
+	return "📅 Today's " + incidentManager
 }
 
 // GetIncidentManagerOverview returns duties overlapping today and the next 13
