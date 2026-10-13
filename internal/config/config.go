@@ -39,6 +39,7 @@ type Config struct {
 	MailerEmailWork          string
 	IncidentManagerICALURL   string
 	IncidentManagerNotifyAt  string
+	IncidentManagerEmails    []string
 	GUIUsername              string
 	GUIPassword              string
 	GUISessionSecret         string
@@ -127,11 +128,17 @@ func Load() (Config, error) {
 		if _, err := time.Parse("15:04", cfg.IncidentManagerNotifyAt); err != nil {
 			return Config{}, fmt.Errorf("invalid INCIDENT_MANAGER_NOTIFICATION_TIME value %q: expected HH:MM", cfg.IncidentManagerNotifyAt)
 		}
-		if strings.TrimSpace(cfg.MailerEmailWork) == "" {
-			return Config{}, fmt.Errorf("MAILER_EMAIL_WORK is required when INCIDENT_MANAGER_ICAL_URL is configured")
+		rawEmails := strings.TrimSpace(os.Getenv("INCIDENT_MANAGER_NOTIFICATION_EMAILS"))
+		if rawEmails == "" {
+			return Config{}, fmt.Errorf("INCIDENT_MANAGER_NOTIFICATION_EMAILS is required when INCIDENT_MANAGER_ICAL_URL is configured")
 		}
-		if _, err := mail.ParseAddress(cfg.MailerEmailWork); err != nil {
-			return Config{}, fmt.Errorf("invalid MAILER_EMAIL_WORK value: %w", err)
+		addresses, err := mail.ParseAddressList(rawEmails)
+		if err != nil {
+			return Config{}, fmt.Errorf("invalid INCIDENT_MANAGER_NOTIFICATION_EMAILS value: %w", err)
+		}
+		cfg.IncidentManagerEmails = make([]string, len(addresses))
+		for i, address := range addresses {
+			cfg.IncidentManagerEmails[i] = address.Address
 		}
 	}
 

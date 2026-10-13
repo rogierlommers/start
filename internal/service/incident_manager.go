@@ -131,13 +131,17 @@ func (s *Service) sendIncidentManagerSummary(ctx context.Context, now time.Time)
 		return err
 	}
 
-	msg := mailer.Message{
-		To:      s.cfg.MailerEmailWork,
-		Subject: formatIncidentManagerSubject(matching),
-		Body:    formatIncidentManagerSummary(dayStart, matching, location),
-	}
-	if err := s.mailer.Send(ctx, msg); err != nil {
-		return fmt.Errorf("send incident-manager email: %w", err)
+	subject := formatIncidentManagerSubject(matching)
+	body := formatIncidentManagerSummary(dayStart, matching, location)
+	for _, recipient := range s.cfg.IncidentManagerEmails {
+		msg := mailer.Message{
+			To:      recipient,
+			Subject: subject,
+			Body:    body,
+		}
+		if err := s.mailer.Send(ctx, msg); err != nil {
+			return fmt.Errorf("send incident-manager email: %w", err)
+		}
 	}
 	return nil
 }

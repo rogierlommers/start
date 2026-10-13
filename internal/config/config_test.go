@@ -28,6 +28,7 @@ var configEnvKeys = []string{
 	"MAILER_EMAIL_WORK",
 	"INCIDENT_MANAGER_ICAL_URL",
 	"INCIDENT_MANAGER_NOTIFICATION_TIME",
+	"INCIDENT_MANAGER_NOTIFICATION_EMAILS",
 	"SMTP_PORT",
 	"ENABLE_ACCESS_LOGS",
 	"ENABLE_BANKING_APPLICATION_ID",
@@ -77,34 +78,35 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestLoadParsesOverrides(t *testing.T) {
 	withConfigTestEnv(t, map[string]string{
-		"HTTP_BIND_ADDR":                     "127.0.0.1:3000",
-		"LOG_LEVEL":                          "debug",
-		"SQLITE_PATH":                        "  /tmp/start.db  ",
-		"GUI_USERNAME":                       "gui-user",
-		"GUI_PASSWORD":                       "gui-pass",
-		"GUI_SESSION_SECRET":                 "stable-session-secret-012345678901",
-		"API_USERNAME":                       "api-user",
-		"API_PASSWORD":                       "api-pass",
-		"STORAGE_UPLOAD_DIR":                 "/tmp/uploads",
-		"STORAGE_MAX_UPLOAD_MB":              "256",
-		"STORAGE_CLEANUP_DAYS":               "14",
-		"READING_LIST_CLEANUP_DAYS":          "7",
-		"MAILER_SMTP_HOST":                   "smtp.example.com",
-		"MAILER_SMTP_USERNAME":               "mailer-user",
-		"MAILER_SMTP_PASSWORD":               "mailer-pass",
-		"MAILER_SMTP_FROM":                   "start@example.com",
-		"MAILER_EMAIL_PRIVATE":               "private@example.com",
-		"MAILER_EMAIL_WORK":                  "work@example.com",
-		"INCIDENT_MANAGER_ICAL_URL":          "https://calendar.example.com/duty.ics",
-		"INCIDENT_MANAGER_NOTIFICATION_TIME": "16:30",
-		"SMTP_PORT":                          "2525",
-		"ENABLE_ACCESS_LOGS":                 "true",
-		"ENABLE_BANKING_APPLICATION_ID":      "app-id",
-		"ENABLE_BANKING_PRIVATE_KEY_PATH":    "/run/secrets/enable-banking.pem",
-		"ENABLE_BANKING_CALLBACK_URL":        "https://dashboard.example/api/banking/callback",
-		"ENABLE_BANKING_ASPSP_NAME":          "ING NL",
-		"ENABLE_BANKING_CACHE_MINUTES":       "90",
-		"DATA_PROTECTION_EMAIL":              "privacy@example.com",
+		"HTTP_BIND_ADDR":                       "127.0.0.1:3000",
+		"LOG_LEVEL":                            "debug",
+		"SQLITE_PATH":                          "  /tmp/start.db  ",
+		"GUI_USERNAME":                         "gui-user",
+		"GUI_PASSWORD":                         "gui-pass",
+		"GUI_SESSION_SECRET":                   "stable-session-secret-012345678901",
+		"API_USERNAME":                         "api-user",
+		"API_PASSWORD":                         "api-pass",
+		"STORAGE_UPLOAD_DIR":                   "/tmp/uploads",
+		"STORAGE_MAX_UPLOAD_MB":                "256",
+		"STORAGE_CLEANUP_DAYS":                 "14",
+		"READING_LIST_CLEANUP_DAYS":            "7",
+		"MAILER_SMTP_HOST":                     "smtp.example.com",
+		"MAILER_SMTP_USERNAME":                 "mailer-user",
+		"MAILER_SMTP_PASSWORD":                 "mailer-pass",
+		"MAILER_SMTP_FROM":                     "start@example.com",
+		"MAILER_EMAIL_PRIVATE":                 "private@example.com",
+		"MAILER_EMAIL_WORK":                    "work@example.com",
+		"INCIDENT_MANAGER_ICAL_URL":            "https://calendar.example.com/duty.ics",
+		"INCIDENT_MANAGER_NOTIFICATION_TIME":   "16:30",
+		"INCIDENT_MANAGER_NOTIFICATION_EMAILS": "primary@example.com, secondary@example.com",
+		"SMTP_PORT":                            "2525",
+		"ENABLE_ACCESS_LOGS":                   "true",
+		"ENABLE_BANKING_APPLICATION_ID":        "app-id",
+		"ENABLE_BANKING_PRIVATE_KEY_PATH":      "/run/secrets/enable-banking.pem",
+		"ENABLE_BANKING_CALLBACK_URL":          "https://dashboard.example/api/banking/callback",
+		"ENABLE_BANKING_ASPSP_NAME":            "ING NL",
+		"ENABLE_BANKING_CACHE_MINUTES":         "90",
+		"DATA_PROTECTION_EMAIL":                "privacy@example.com",
 	}, true, func() {
 		cfg, err := Load()
 		if err != nil {
@@ -150,6 +152,9 @@ func TestLoadParsesOverrides(t *testing.T) {
 		if cfg.IncidentManagerICALURL != "https://calendar.example.com/duty.ics" || cfg.IncidentManagerNotifyAt != "16:30" {
 			t.Fatalf("incident manager settings = (%q, %q)", cfg.IncidentManagerICALURL, cfg.IncidentManagerNotifyAt)
 		}
+		if len(cfg.IncidentManagerEmails) != 2 || cfg.IncidentManagerEmails[0] != "primary@example.com" || cfg.IncidentManagerEmails[1] != "secondary@example.com" {
+			t.Fatalf("IncidentManagerEmails = %v", cfg.IncidentManagerEmails)
+		}
 		if !cfg.EnableAccessLogs {
 			t.Fatal("EnableAccessLogs = false, want true")
 		}
@@ -184,10 +189,10 @@ func TestLoadRejectsInvalidValues(t *testing.T) {
 		{name: "invalid access logs", env: map[string]string{"ENABLE_ACCESS_LOGS": "maybe"}},
 		{name: "invalid banking cache minutes", env: map[string]string{"ENABLE_BANKING_CACHE_MINUTES": "abc"}},
 		{name: "non-positive banking cache minutes", env: map[string]string{"ENABLE_BANKING_CACHE_MINUTES": "0"}},
-		{name: "invalid incident notification time", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "https://example.com/duty.ics", "MAILER_EMAIL_WORK": "work@example.com", "INCIDENT_MANAGER_NOTIFICATION_TIME": "25:00"}},
+		{name: "invalid incident notification time", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "https://example.com/duty.ics", "INCIDENT_MANAGER_NOTIFICATION_EMAILS": "work@example.com", "INCIDENT_MANAGER_NOTIFICATION_TIME": "25:00"}},
 		{name: "missing incident recipient", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "https://example.com/duty.ics"}},
-		{name: "invalid incident feed URL", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "file:///tmp/duty.ics", "MAILER_EMAIL_WORK": "work@example.com"}},
-		{name: "invalid incident recipient", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "https://example.com/duty.ics", "MAILER_EMAIL_WORK": "not-an-email"}},
+		{name: "invalid incident feed URL", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "file:///tmp/duty.ics", "INCIDENT_MANAGER_NOTIFICATION_EMAILS": "work@example.com"}},
+		{name: "invalid incident recipient", env: map[string]string{"INCIDENT_MANAGER_ICAL_URL": "https://example.com/duty.ics", "INCIDENT_MANAGER_NOTIFICATION_EMAILS": "valid@example.com, not-an-email"}},
 		{name: "partial banking config", env: map[string]string{"ENABLE_BANKING_APPLICATION_ID": "app-id"}},
 		{name: "insecure banking callback", env: map[string]string{
 			"ENABLE_BANKING_APPLICATION_ID": "app-id", "ENABLE_BANKING_PRIVATE_KEY_PATH": "/key.pem",

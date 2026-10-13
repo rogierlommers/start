@@ -77,10 +77,11 @@ If `SMTP_HOST` or `SMTP_FROM` are not configured, the mail endpoint returns `503
 ### Incident manager notification
 
 The service can download an iCalendar (`.ics`/`.ical`) feed once per day and email
-the `VEVENT` entries that overlap the following day to `MAILER_EMAIL_WORK`.
+the `VEVENT` entries that overlap the following day to one or more configured recipients.
 
 - `INCIDENT_MANAGER_ICAL_URL` enables the notification worker and contains the HTTP(S) feed URL.
 - `INCIDENT_MANAGER_NOTIFICATION_TIME` sets the daily local send time in `HH:MM` format (default `17:00`).
+- `INCIDENT_MANAGER_NOTIFICATION_EMAILS` is a required, comma-separated list of notification recipients when the worker is enabled. Each recipient receives a separate email.
 
 The notification schedule and target calendar day always use the
 `Europe/Amsterdam` timezone.

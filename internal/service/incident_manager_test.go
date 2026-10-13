@@ -76,7 +76,7 @@ func TestSendIncidentManagerSummaryForFollowingDay(t *testing.T) {
 
 	sender := &recordingSender{}
 	svc := New(repository.NewMemoryStore(), sender, config.Config{
-		MailerEmailWork:         "work@example.com",
+		IncidentManagerEmails:   []string{"primary@example.com", "secondary@example.com"},
 		IncidentManagerICALURL:  server.URL,
 		IncidentManagerNotifyAt: "17:00",
 	})
@@ -84,15 +84,17 @@ func TestSendIncidentManagerSummaryForFollowingDay(t *testing.T) {
 		t.Fatalf("sendIncidentManagerSummary() error = %v", err)
 	}
 
-	if len(sender.messages) != 1 {
-		t.Fatalf("sent %d messages, want 1", len(sender.messages))
+	if len(sender.messages) != 2 {
+		t.Fatalf("sent %d messages, want 2", len(sender.messages))
 	}
-	msg := sender.messages[0]
-	if msg.To != "work@example.com" || msg.Subject != "📅 Today's Alice Example" {
-		t.Fatalf("message headers = To %q, Subject %q", msg.To, msg.Subject)
-	}
-	if !strings.Contains(msg.Body, "Alice Example") || strings.Contains(msg.Body, "Wrong day") {
-		t.Fatalf("message body = %q", msg.Body)
+	for i, recipient := range []string{"primary@example.com", "secondary@example.com"} {
+		msg := sender.messages[i]
+		if msg.To != recipient || msg.Subject != "📅 Today's Alice Example" {
+			t.Fatalf("message %d headers = To %q, Subject %q", i, msg.To, msg.Subject)
+		}
+		if !strings.Contains(msg.Body, "Alice Example") || strings.Contains(msg.Body, "Wrong day") {
+			t.Fatalf("message %d body = %q", i, msg.Body)
+		}
 	}
 }
 
