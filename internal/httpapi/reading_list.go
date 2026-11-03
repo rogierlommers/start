@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"html/template"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -24,6 +25,9 @@ type readingListItemResponse struct {
 	URL       string    `json:"url"`
 	Title     string    `json:"title"`
 	CreatedAt time.Time `json:"created_at"`
+	ClientIP  string    `json:"client_ip"`
+	UserAgent string    `json:"user_agent"`
+	Referer   string    `json:"referer"`
 }
 
 type rssDocument struct {
@@ -111,7 +115,27 @@ func readingListItemToResponse(item service.ReadingListItem) readingListItemResp
 		URL:       item.URL,
 		Title:     item.Title,
 		CreatedAt: item.CreatedAt,
+		ClientIP:  item.ClientIP,
+		UserAgent: item.UserAgent,
+		Referer:   item.Referer,
 	}
+}
+
+func readingListRequestDiagnostics(r *http.Request) (clientIP, userAgent, referer string) {
+	// RemoteAddr is the connection peer. Unlike forwarded headers, it cannot be supplied by the caller.
+	clientIP, _, _ = net.SplitHostPort(r.RemoteAddr)
+	userAgent = r.UserAgent()
+	if len(userAgent) > 512 {
+		userAgent = userAgent[:512]
+	}
+	if parsed, err := url.Parse(r.Referer()); err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != "" {
+		// Only retain the origin: paths and query strings can contain private tokens.
+		referer = parsed.Scheme + "://" + parsed.Host
+		if len(referer) > 512 {
+			referer = ""
+		}
+	}
+	return
 }
 
 // addReadingListItem godoc
@@ -132,9 +156,13 @@ func (h handlers) addReadingListItem(c *gin.Context) {
 		return
 	}
 
+	clientIP, userAgent, referer := readingListRequestDiagnostics(c.Request)
 	item, err := h.svc.AddReadingListItem(c.Request.Context(), service.AddReadingListItemInput{
-		URL:   req.URL,
-		Title: req.Title,
+		URL:       req.URL,
+		Title:     req.Title,
+		ClientIP:  clientIP,
+		UserAgent: userAgent,
+		Referer:   referer,
 	})
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidReadingListInput) {
@@ -169,7 +197,10 @@ func (h handlers) addReadingListItemFromBookmarklet(c *gin.Context) {
 	// Be lenient with pasted bookmarklet formats that may include surrounding quotes.
 	rawURL = strings.Trim(rawURL, "'\"")
 
-	item, err := h.svc.AddReadingListItem(c.Request.Context(), service.AddReadingListItemInput{URL: rawURL})
+	clientIP, userAgent, referer := readingListRequestDiagnostics(c.Request)
+	item, err := h.svc.AddReadingListItem(c.Request.Context(), service.AddReadingListItemInput{
+		URL: rawURL, ClientIP: clientIP, UserAgent: userAgent, Referer: referer,
+	})
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidReadingListInput) {
 			c.JSON(http.StatusBadRequest, apiErrorResponse{Error: err.Error()})

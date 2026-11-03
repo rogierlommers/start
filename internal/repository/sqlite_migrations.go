@@ -122,4 +122,13 @@ var sqliteMigrations = []sqliteMigration{
 			)`,
 		},
 	},
+	{
+		version: 8,
+		name:    "add_reading_list_request_diagnostics",
+		statements: []string{
+			`ALTER TABLE reading_list_items ADD COLUMN client_ip TEXT NOT NULL DEFAULT ''`,
+			`ALTER TABLE reading_list_items ADD COLUMN user_agent TEXT NOT NULL DEFAULT ''`,
+			`ALTER TABLE reading_list_items ADD COLUMN referer TEXT NOT NULL DEFAULT ''`,
+		},
+	},
 }

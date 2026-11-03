@@ -222,6 +222,7 @@ func TestSQLiteMigrationBackfillsExistingBankConnection(t *testing.T) {
 	}
 	statements := []string{
 		`CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)`,
+		`CREATE TABLE reading_list_items (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL)`,
 		`INSERT INTO schema_migrations(version, name, applied_at) VALUES
 			(1, 'initial_schema', '2026-10-10T00:00:00Z'),
 			(2, 'add_bookmark_tags', '2026-10-10T00:00:00Z'),

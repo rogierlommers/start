@@ -857,6 +857,16 @@
 
           list.innerHTML = items.map((item) => {
             const title = String(item.title || '').trim() || item.url
+            const clientIP = String(item.client_ip || '').trim()
+            const userAgent = String(item.user_agent || '').trim()
+            const referer = String(item.referer || '').trim()
+            const requestDetails = clientIP || userAgent || referer
+              ? `<dl class="mt-1 grid gap-1 text-[11px] text-gray-500">
+                   <div><dt class="inline font-medium">IP address:</dt> <dd class="inline break-all">${escHtml(clientIP || 'Unavailable')}</dd></div>
+                   <div><dt class="inline font-medium">User agent:</dt> <dd class="inline break-all">${escHtml(userAgent || 'Not provided')}</dd></div>
+                   <div><dt class="inline font-medium">Referrer:</dt> <dd class="inline break-all">${escHtml(referer || 'Not provided')}</dd></div>
+                 </dl>`
+              : '<p class="mt-1 text-[11px] text-gray-500">No request details recorded.</p>'
             return `
               <li class="py-2.5 flex items-start justify-between gap-2">
                 <div class="min-w-0 flex-1">
@@ -864,6 +874,10 @@
                      class="truncate text-rose-600 hover:underline text-sm font-medium block"
                      title="${escAttr(title)}">${escHtml(title)}</a>
                   <p class="truncate text-xs text-gray-500" title="${escAttr(item.url)}">${escHtml(item.url)}</p>
+                  <details class="mt-1 text-xs text-gray-500">
+                    <summary class="w-fit cursor-pointer hover:text-gray-700">Request details</summary>
+                    ${requestDetails}
+                  </details>
                 </div>
                 <span class="text-[11px] text-gray-400 shrink-0">${escHtml(fmtDateTime(item.created_at))}</span>
               </li>`

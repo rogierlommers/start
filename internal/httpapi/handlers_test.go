@@ -365,6 +365,70 @@ func TestReadingListHandlersAndRSS(t *testing.T) {
 	}
 }
 
+func TestReadingListRequestDiagnosticsStayOutOfPublicRSS(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router, _ := newAPITestRouter(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/reading-list/bookmarklet-input?url=https%3A%2F%2Fexample.com%2F", nil)
+	req.RemoteAddr = "192.0.2.10:54321"
+	req.Header.Set("User-Agent", "ReadingListTest/1.0")
+	req.Header.Set("Referer", "https://example.com/article?token=private#section")
+	req.Header.Set("X-Forwarded-For", "203.0.113.99") // untrusted; must not replace the connection IP
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("bookmarklet status = %d, want 200", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "192.0.2.10") || strings.Contains(rec.Body.String(), "ReadingListTest") {
+		t.Fatalf("public confirmation leaked request diagnostics: %q", rec.Body.String())
+	}
+
+	rec = performJSONRequest(router, http.MethodGet, "/api/reading-list/items", "")
+	var items []struct {
+		ClientIP  string `json:"client_ip"`
+		UserAgent string `json:"user_agent"`
+		Referer   string `json:"referer"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &items); err != nil || len(items) != 1 {
+		t.Fatalf("list response = %q, err = %v", rec.Body.String(), err)
+	}
+	if items[0].ClientIP != "192.0.2.10" || items[0].UserAgent != "ReadingListTest/1.0" || items[0].Referer != "https://example.com" {
+		t.Fatalf("list diagnostics = %+v", items[0])
+	}
+
+	rec = performJSONRequest(router, http.MethodGet, "/api/reading-list/rss", "")
+	for _, sensitive := range []string{"192.0.2.10", "ReadingListTest", "example.com/article"} {
+		if strings.Contains(rec.Body.String(), sensitive) {
+			t.Fatalf("public RSS leaked %q", sensitive)
+		}
+	}
+}
+
+func TestReadingListPOSTCapturesRequestDiagnostics(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router, _ := newAPITestRouter(t)
+	req := httptest.NewRequest(http.MethodPost, "/api/reading-list/items", strings.NewReader(`{"url":"https://example.com/"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = "[2001:db8::1]:54321"
+	req.Header.Set("User-Agent", "ReadingListAPI/1.0")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("POST status = %d, want 201: %s", rec.Code, rec.Body.String())
+	}
+	var created struct {
+		ClientIP  string `json:"client_ip"`
+		UserAgent string `json:"user_agent"`
+		Referer   string `json:"referer"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.ClientIP != "2001:db8::1" || created.UserAgent != "ReadingListAPI/1.0" || created.Referer != "" {
+		t.Fatalf("POST diagnostics = %+v", created)
+	}
+}
+
 func TestOpenAPISpecRoute(t *testing.T) {
 	t.Chdir("../..")
 	gin.SetMode(gin.TestMode)

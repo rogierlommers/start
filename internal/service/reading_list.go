@@ -20,11 +20,17 @@ type ReadingListItem struct {
 	URL       string
 	Title     string
 	CreatedAt time.Time
+	ClientIP  string
+	UserAgent string
+	Referer   string
 }
 
 type AddReadingListItemInput struct {
-	URL   string
-	Title string
+	URL       string
+	Title     string
+	ClientIP  string
+	UserAgent string
+	Referer   string
 }
 
 func (s *Service) AddReadingListItem(ctx context.Context, in AddReadingListItemInput) (ReadingListItem, error) {
@@ -41,8 +47,11 @@ func (s *Service) AddReadingListItem(ctx context.Context, in AddReadingListItemI
 	}
 
 	item, err := s.store.CreateReadingListItem(ctx, repository.ReadingListItem{
-		URL:   rawURL,
-		Title: title,
+		URL:       rawURL,
+		Title:     title,
+		ClientIP:  in.ClientIP,
+		UserAgent: in.UserAgent,
+		Referer:   in.Referer,
 	})
 	if err != nil {
 		return ReadingListItem{}, fmt.Errorf("add reading list item: %w", err)
@@ -71,6 +80,9 @@ func repoReadingListItemToService(item repository.ReadingListItem) ReadingListIt
 		URL:       item.URL,
 		Title:     item.Title,
 		CreatedAt: item.CreatedAt,
+		ClientIP:  item.ClientIP,
+		UserAgent: item.UserAgent,
+		Referer:   item.Referer,
 	}
 }
 

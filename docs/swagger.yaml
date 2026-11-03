@@ -131,13 +131,19 @@ definitions:
     type: object
   httpapi.readingListItemResponse:
     properties:
+      client_ip:
+        type: string
       created_at:
         type: string
       id:
         type: integer
+      referer:
+        type: string
       title:
         type: string
       url:
+        type: string
+      user_agent:
         type: string
     type: object
   httpapi.reorderBookmarksRequest:

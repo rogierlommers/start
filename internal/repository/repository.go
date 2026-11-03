@@ -66,6 +66,9 @@ type ReadingListItem struct {
 	URL       string
 	Title     string
 	CreatedAt time.Time
+	ClientIP  string
+	UserAgent string
+	Referer   string
 }
 
 // ReadingListStore defines persistence operations for reading-list items.

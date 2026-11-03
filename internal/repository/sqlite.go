@@ -427,10 +427,13 @@ func (s *SQLiteStore) SaveBookmarkCSV(ctx context.Context, content string) error
 func (s *SQLiteStore) CreateReadingListItem(ctx context.Context, item ReadingListItem) (ReadingListItem, error) {
 	createdAt := time.Now().UTC()
 	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO reading_list_items(url, title, created_at) VALUES(?, ?, ?)`,
+		`INSERT INTO reading_list_items(url, title, created_at, client_ip, user_agent, referer) VALUES(?, ?, ?, ?, ?, ?)`,
 		item.URL,
 		item.Title,
 		createdAt.Format(time.RFC3339Nano),
+		item.ClientIP,
+		item.UserAgent,
+		item.Referer,
 	)
 	if err != nil {
 		return ReadingListItem{}, fmt.Errorf("insert reading list item: %w", err)
@@ -446,12 +449,15 @@ func (s *SQLiteStore) CreateReadingListItem(ctx context.Context, item ReadingLis
 		URL:       item.URL,
 		Title:     item.Title,
 		CreatedAt: createdAt,
+		ClientIP:  item.ClientIP,
+		UserAgent: item.UserAgent,
+		Referer:   item.Referer,
 	}, nil
 }
 
 func (s *SQLiteStore) ListReadingListItems(ctx context.Context) ([]ReadingListItem, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, url, title, created_at FROM reading_list_items ORDER BY created_at DESC, id DESC`,
+		`SELECT id, url, title, created_at, client_ip, user_agent, referer FROM reading_list_items ORDER BY created_at DESC, id DESC`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list reading list items: %w", err)
@@ -719,7 +725,7 @@ func scanReadingListItem(rows *sql.Rows) (ReadingListItem, error) {
 		createdAt string
 	)
 
-	if err := rows.Scan(&item.ID, &item.URL, &item.Title, &createdAt); err != nil {
+	if err := rows.Scan(&item.ID, &item.URL, &item.Title, &createdAt, &item.ClientIP, &item.UserAgent, &item.Referer); err != nil {
 		return ReadingListItem{}, fmt.Errorf("scan reading list item: %w", err)
 	}
 

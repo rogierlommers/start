@@ -224,6 +224,18 @@ Reading-list cleanup environment variables:
 
 The bookmarklet endpoint adds the incoming `url` as a new reading-list item and displays a confirmation page with the saved site's details. It does not redirect to the saved site.
 
+New reading-list items also record the request's connection IP (`client_ip`), user agent
+(`user_agent`), and referring site origin (`referer`, without path or query). These
+fields appear in `GET /api/reading-list/items` (and the add-item response), which are
+protected when GUI authentication is configured, but **not** in the public RSS feed or bookmarklet
+confirmation page. Existing items have empty values; the migration cannot recover
+past request details. `client_ip` is the network peer: when behind a reverse proxy,
+it may be the proxy's IP rather than the original visitor's. Forwarded-IP headers
+are intentionally not trusted. Request headers may be absent or falsified.
+The dashboard's Reading List tab shows these fields under each item's expandable
+**Request details** section; items saved before the migration show that no details
+were recorded.
+
 Bookmarklet one-liner:
 
 `javascript:(()=>{const cur=location.href;location.href='http://127.0.0.1:3000/api/reading-list/bookmarklet-input?url='+encodeURIComponent(cur)+'&_='+Date.now()})()`

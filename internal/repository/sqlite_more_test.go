@@ -2,8 +2,10 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -191,6 +193,59 @@ func TestSQLiteReadingListLifecycle(t *testing.T) {
 	}
 	if deleted < 1 {
 		t.Fatalf("DeleteReadingListItemsOlderThan() deleted = %d, want at least 1", deleted)
+	}
+}
+
+func TestSQLiteReadingListRequestDiagnostics(t *testing.T) {
+	store := mustNewSQLiteStore(t)
+	ctx := context.Background()
+	want := ReadingListItem{URL: "https://example.com/", ClientIP: "192.0.2.10", UserAgent: "Test/1.0", Referer: "https://example.com/article"}
+	created, err := store.CreateReadingListItem(ctx, want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, err := store.ListReadingListItems(ctx)
+	if err != nil || len(items) != 1 {
+		t.Fatalf("ListReadingListItems() = (%+v, %v)", items, err)
+	}
+	for _, got := range []ReadingListItem{created, items[0]} {
+		if got.ClientIP != want.ClientIP || got.UserAgent != want.UserAgent || got.Referer != want.Referer {
+			t.Fatalf("request diagnostics not preserved: %+v", got)
+		}
+	}
+}
+
+func TestSQLiteReadingListDiagnosticsMigrationPreservesExistingRows(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "reading-list-v7.db")
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, statement := range []string{
+		`CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)`,
+		`INSERT INTO schema_migrations(version, name, applied_at) VALUES
+			(1, 'initial_schema', ''), (2, 'add_bookmark_tags', ''), (3, 'add_bookmark_csv', ''),
+			(4, 'add_bank_connection', ''), (5, 'support_multiple_bank_accounts', ''),
+			(6, 'track_bank_transaction_consent', ''), (7, 'add_bank_account_aliases', '')`,
+		`CREATE TABLE reading_list_items (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL)`,
+		`INSERT INTO reading_list_items(url, title, created_at) VALUES('https://old.example/', 'Old', '2026-10-01T12:00:00Z')`,
+	} {
+		if _, err := db.Exec(statement); err != nil {
+			t.Fatalf("prepare v7 database: %v", err)
+		}
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err := NewSQLiteStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	items, err := store.ListReadingListItems(context.Background())
+	if err != nil || len(items) != 1 || items[0].URL != "https://old.example/" || items[0].ClientIP != "" || items[0].UserAgent != "" || items[0].Referer != "" {
+		t.Fatalf("migrated items = (%+v, %v)", items, err)
 	}
 }
 
