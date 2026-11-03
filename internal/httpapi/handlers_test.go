@@ -373,7 +373,7 @@ func TestReadingListRequestDiagnosticsStayOutOfPublicRSS(t *testing.T) {
 	req.RemoteAddr = "192.0.2.10:54321"
 	req.Header.Set("User-Agent", "ReadingListTest/1.0")
 	req.Header.Set("Referer", "https://example.com/article?token=private#section")
-	req.Header.Set("X-Forwarded-For", "203.0.113.99") // untrusted; must not replace the connection IP
+	req.Header.Set("X-Forwarded-For", "203.0.113.99, 192.0.2.10")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -392,15 +392,37 @@ func TestReadingListRequestDiagnosticsStayOutOfPublicRSS(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &items); err != nil || len(items) != 1 {
 		t.Fatalf("list response = %q, err = %v", rec.Body.String(), err)
 	}
-	if items[0].ClientIP != "192.0.2.10" || items[0].UserAgent != "ReadingListTest/1.0" || items[0].Referer != "https://example.com" {
+	if items[0].ClientIP != "203.0.113.99" || items[0].UserAgent != "ReadingListTest/1.0" || items[0].Referer != "https://example.com" {
 		t.Fatalf("list diagnostics = %+v", items[0])
 	}
 
 	rec = performJSONRequest(router, http.MethodGet, "/api/reading-list/rss", "")
-	for _, sensitive := range []string{"192.0.2.10", "ReadingListTest", "example.com/article"} {
+	for _, sensitive := range []string{"203.0.113.99", "ReadingListTest", "example.com/article"} {
 		if strings.Contains(rec.Body.String(), sensitive) {
 			t.Fatalf("public RSS leaked %q", sensitive)
 		}
+	}
+}
+
+func TestReadingListClientIPFallsBackWhenForwardedForIsInvalid(t *testing.T) {
+	for _, forwarded := range []string{"", "not-an-ip", "not-an-ip, 203.0.113.99"} {
+		req := httptest.NewRequest(http.MethodGet, "/api/reading-list/bookmarklet-input", nil)
+		req.RemoteAddr = "[2001:db8::1]:54321"
+		req.Header.Set("X-Forwarded-For", forwarded)
+		ip, _, _ := readingListRequestDiagnostics(req)
+		if ip != "2001:db8::1" {
+			t.Fatalf("X-Forwarded-For %q: client IP = %q, want connection IP", forwarded, ip)
+		}
+	}
+}
+
+func TestReadingListClientIPAcceptsForwardedIPv6(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/api/reading-list/bookmarklet-input", nil)
+	req.RemoteAddr = "192.0.2.10:54321"
+	req.Header.Set("X-Forwarded-For", " 2001:db8::2 , 192.0.2.10")
+	ip, _, _ := readingListRequestDiagnostics(req)
+	if ip != "2001:db8::2" {
+		t.Fatalf("client IP = %q, want forwarded IPv6", ip)
 	}
 }
 

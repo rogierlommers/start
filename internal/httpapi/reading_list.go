@@ -122,8 +122,12 @@ func readingListItemToResponse(item service.ReadingListItem) readingListItemResp
 }
 
 func readingListRequestDiagnostics(r *http.Request) (clientIP, userAgent, referer string) {
-	// RemoteAddr is the connection peer. Unlike forwarded headers, it cannot be supplied by the caller.
 	clientIP, _, _ = net.SplitHostPort(r.RemoteAddr)
+	// Caddy forwards the visitor IP in the first position; a malformed value falls back to the connection peer.
+	forwarded, _, _ := strings.Cut(r.Header.Get("X-Forwarded-For"), ",")
+	if ip := net.ParseIP(strings.TrimSpace(forwarded)); ip != nil {
+		clientIP = ip.String()
+	}
 	userAgent = r.UserAgent()
 	if len(userAgent) > 512 {
 		userAgent = userAgent[:512]
