@@ -46,6 +46,11 @@ func (s *Service) AddReadingListItem(ctx context.Context, in AddReadingListItemI
 		return ReadingListItem{}, fmt.Errorf("%w: url must be a valid http or https URL", ErrInvalidReadingListInput)
 	}
 
+	// debug for issue https://github.com/rogierlommers/start/issues/31
+	// dump as much as possible for debugging.
+	logrus.Infof("adding reading list item: url=%s title=%s client_ip=%s user_agent=%s referer=%s", rawURL, title, in.ClientIP, in.UserAgent, in.Referer)
+	// end debug
+
 	item, err := s.store.CreateReadingListItem(ctx, repository.ReadingListItem{
 		URL:       rawURL,
 		Title:     title,
